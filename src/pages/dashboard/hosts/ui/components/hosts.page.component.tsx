@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { MultiSelectHostsFeature } from '@features/dashboard/hosts/multi-select-hosts/multi-select-hosts.feature'
 import { CreateHostModalWidget } from '@widgets/dashboard/hosts/create-host-modal'
+import { ExternalVlessManagerWidget } from '@widgets/dashboard/hosts/external-vless-manager'
 import { HostsSpotlightWidget } from '@widgets/dashboard/hosts/hosts-spotlight'
 import { EditHostModalWidget } from '@widgets/dashboard/hosts/edit-host-modal'
 import { HostsTableWidget } from '@widgets/dashboard/hosts/hosts-table'
@@ -26,6 +27,7 @@ export default function HostsPageComponent(props: IProps) {
                     initial={{ opacity: 0 }}
                     transition={{ duration: 0.5 }}
                 >
+                    <ExternalVlessManagerWidget />
                     <HostsTableWidget
                         configProfiles={configProfiles}
                         hosts={hosts}
