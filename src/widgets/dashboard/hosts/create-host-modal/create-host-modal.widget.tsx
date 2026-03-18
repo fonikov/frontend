@@ -4,7 +4,7 @@ import { notifications } from '@mantine/notifications'
 import { useTranslation } from 'react-i18next'
 import { PiListChecks } from 'react-icons/pi'
 import { useForm } from '@mantine/form'
-import { Drawer } from '@mantine/core'
+import { Drawer, Tabs } from '@mantine/core'
 import { useState } from 'react'
 
 import {
@@ -17,6 +17,7 @@ import {
 } from '@shared/api/hooks'
 import { MODALS, useModalClose, useModalState } from '@entities/dashboard/modal-store'
 import { BaseOverlayHeader } from '@shared/ui/overlays/base-overlay-header'
+import { ReadySubscriptionsPanelWidget } from '@widgets/dashboard/hosts/external-vless-manager'
 import { BaseHostForm } from '@shared/ui/forms/hosts/base-host-form'
 import { queryClient } from '@shared/api'
 
@@ -32,6 +33,7 @@ export const CreateHostModalWidget = () => {
     const { data: templates } = useGetSubscriptionTemplates()
 
     const [advancedOpened, setAdvancedOpened] = useState(false)
+    const [activeTab, setActiveTab] = useState<string | null>('manual')
 
     const form = useForm<CreateHostCommand.Request>({
         mode: 'uncontrolled',
@@ -59,6 +61,7 @@ export const CreateHostModalWidget = () => {
     const handleClose = () => {
         close()
         setAdvancedOpened(false)
+        setActiveTab('manual')
 
         form.reset()
         form.resetDirty()
@@ -175,17 +178,30 @@ export const CreateHostModalWidget = () => {
                 />
             }
         >
-            <BaseHostForm
-                advancedOpened={advancedOpened}
-                configProfiles={configProfiles?.configProfiles ?? []}
-                form={form}
-                handleSubmit={handleSubmit}
-                internalSquads={internalSquads?.internalSquads ?? []}
-                isSubmitting={isCreateHostPending}
-                nodes={nodes!}
-                setAdvancedOpened={setAdvancedOpened}
-                subscriptionTemplates={templates?.templates ?? []}
-            />
+            <Tabs keepMounted onChange={setActiveTab} value={activeTab}>
+                <Tabs.List grow mb="md">
+                    <Tabs.Tab value="manual">Manual host</Tabs.Tab>
+                    <Tabs.Tab value="ready">Ready subscriptions</Tabs.Tab>
+                </Tabs.List>
+
+                <Tabs.Panel value="manual">
+                    <BaseHostForm
+                        advancedOpened={advancedOpened}
+                        configProfiles={configProfiles?.configProfiles ?? []}
+                        form={form}
+                        handleSubmit={handleSubmit}
+                        internalSquads={internalSquads?.internalSquads ?? []}
+                        isSubmitting={isCreateHostPending}
+                        nodes={nodes!}
+                        setAdvancedOpened={setAdvancedOpened}
+                        subscriptionTemplates={templates?.templates ?? []}
+                    />
+                </Tabs.Panel>
+
+                <Tabs.Panel value="ready">
+                    <ReadySubscriptionsPanelWidget variant="full" />
+                </Tabs.Panel>
+            </Tabs>
         </Drawer>
     )
 }
