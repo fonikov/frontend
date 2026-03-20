@@ -25,7 +25,7 @@ import {
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { TbPinned, TbPinnedFilled } from 'react-icons/tb'
 
 import { HostSelectInboundFeature } from '@features/ui/dashboard/hosts/host-select-inbound/host-select-inbound.feature'
@@ -41,6 +41,7 @@ import {
 } from '@widgets/dashboard/hosts/external-vless-manager'
 
 const READY_HOST_ADDRESS = 'ready-subscription.local'
+const MAX_VISIBLE_READY_HOST_ROWS = 300
 
 type TConfigProfiles = GetConfigProfilesCommand.Response['response']['configProfiles']
 
@@ -137,6 +138,7 @@ export function ReadySubscriptionHostFormWidget({
     const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
     const [pinnedNodeIds, setPinnedNodeIds] = useState<string[]>([])
     const [search, setSearch] = useState('')
+    const deferredSearch = useDeferredValue(search)
 
     const { data: presets, isFetching } = useQuery({
         queryKey: externalVlessQueryKey,
@@ -215,13 +217,15 @@ export function ReadySubscriptionHostFormWidget({
         () => presets?.find((preset) => preset.uuid === presetUuid) || null,
         [presetUuid, presets]
     )
+    const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds])
+    const pinnedNodeIdSet = useMemo(() => new Set(pinnedNodeIds), [pinnedNodeIds])
 
     const filteredNodes = useMemo(() => {
         if (!selectedPreset) {
             return []
         }
 
-        const normalizedSearch = search.trim().toLowerCase()
+        const normalizedSearch = deferredSearch.trim().toLowerCase()
         return selectedPreset.nodes
             .filter((node: ExternalVlessNode) => {
                 if (!normalizedSearch) {
@@ -235,13 +239,13 @@ export function ReadySubscriptionHostFormWidget({
             })
             .sort((a, b) => {
                 const selectedDelta =
-                    Number(selectedNodeIds.includes(b.uuid)) - Number(selectedNodeIds.includes(a.uuid))
+                    Number(selectedNodeIdSet.has(b.uuid)) - Number(selectedNodeIdSet.has(a.uuid))
                 if (selectedDelta !== 0) {
                     return selectedDelta
                 }
 
                 const pinnedDelta =
-                    Number(pinnedNodeIds.includes(b.uuid)) - Number(pinnedNodeIds.includes(a.uuid))
+                    Number(pinnedNodeIdSet.has(b.uuid)) - Number(pinnedNodeIdSet.has(a.uuid))
                 if (pinnedDelta !== 0) {
                     return pinnedDelta
                 }
@@ -265,23 +269,46 @@ export function ReadySubscriptionHostFormWidget({
                 const latencyB = b.latencyMs ?? Number.MAX_SAFE_INTEGER
                 return latencyA - latencyB
             })
-    }, [search, selectedPreset, selectedNodeIds, pinnedNodeIds])
+    }, [deferredSearch, pinnedNodeIdSet, selectedNodeIdSet, selectedPreset])
+
+    const visibleNodes = useMemo(() => {
+        if (filteredNodes.length <= MAX_VISIBLE_READY_HOST_ROWS) {
+            return filteredNodes
+        }
+
+        const prioritized = filteredNodes.filter(
+            (node) => selectedNodeIdSet.has(node.uuid) || pinnedNodeIdSet.has(node.uuid)
+        )
+        const remainingSlots = Math.max(
+            0,
+            Math.max(MAX_VISIBLE_READY_HOST_ROWS, prioritized.length) - prioritized.length
+        )
+        const prioritizedIds = new Set(prioritized.map((node) => node.uuid))
+        const tail = filteredNodes
+            .filter((node) => !prioritizedIds.has(node.uuid))
+            .slice(0, remainingSlots)
+
+        return [...prioritized, ...tail]
+    }, [filteredNodes, pinnedNodeIdSet, selectedNodeIdSet])
 
     const toggleNode = (nodeUuid: string) => {
+        const isSelected = selectedNodeIdSet.has(nodeUuid)
+
         setSelectedNodeIds((prev) =>
-            prev.includes(nodeUuid)
-                ? prev.filter((item) => item !== nodeUuid)
-                : [...prev, nodeUuid]
+            isSelected ? prev.filter((item) => item !== nodeUuid) : [...prev, nodeUuid]
         )
-        setPinnedNodeIds((prev) =>
-            selectedNodeIds.includes(nodeUuid) ? prev.filter((item) => item !== nodeUuid) : prev
-        )
+
+        if (isSelected) {
+            setPinnedNodeIds((prev) => prev.filter((item) => item !== nodeUuid))
+        }
     }
 
     const togglePinned = (nodeUuid: string) => {
-        setSelectedNodeIds((prev) => (prev.includes(nodeUuid) ? prev : [...prev, nodeUuid]))
+        setSelectedNodeIds((prev) => (selectedNodeIdSet.has(nodeUuid) ? prev : [...prev, nodeUuid]))
         setPinnedNodeIds((prev) =>
-            prev.includes(nodeUuid) ? prev.filter((item) => item !== nodeUuid) : [...prev, nodeUuid]
+            pinnedNodeIdSet.has(nodeUuid)
+                ? prev.filter((item) => item !== nodeUuid)
+                : [...prev, nodeUuid]
         )
     }
 
@@ -339,7 +366,7 @@ export function ReadySubscriptionHostFormWidget({
                 activeNodeLimit: Math.max(1, activeNodeLimit),
                 selectedNodes: selectedNodeIds.map((nodeUuid) => ({
                     nodeUuid,
-                    isPinned: pinnedNodeIds.includes(nodeUuid)
+                    isPinned: pinnedNodeIdSet.has(nodeUuid)
                 }))
             }
         }
@@ -438,6 +465,13 @@ export function ReadySubscriptionHostFormWidget({
                         value={search}
                     />
 
+                    {filteredNodes.length > visibleNodes.length && (
+                        <Text c="dimmed" size="sm">
+                            Показано {visibleNodes.length} из {filteredNodes.length}. Выбранные и
+                            закреплённые серверы всегда остаются в списке, остальное можно сузить поиском.
+                        </Text>
+                    )}
+
                     <Divider />
 
                     <ScrollArea.Autosize mah={560}>
@@ -455,9 +489,9 @@ export function ReadySubscriptionHostFormWidget({
                                     </Table.Tr>
                                 </Table.Thead>
                                 <Table.Tbody>
-                                    {filteredNodes.map((node: ExternalVlessNode) => {
-                                        const isSelected = selectedNodeIds.includes(node.uuid)
-                                        const isPinned = pinnedNodeIds.includes(node.uuid)
+                                    {visibleNodes.map((node: ExternalVlessNode) => {
+                                        const isSelected = selectedNodeIdSet.has(node.uuid)
+                                        const isPinned = pinnedNodeIdSet.has(node.uuid)
 
                                         return (
                                             <Table.Tr key={node.uuid}>
