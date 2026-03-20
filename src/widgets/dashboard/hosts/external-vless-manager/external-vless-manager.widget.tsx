@@ -95,16 +95,23 @@ const compactBridge = (bridgeLabel: string) =>
         .filter(Boolean)
         .slice(0, 3)
         .join(' / ')
+const getProbePriority = (node: ExternalVlessNode) => {
+    if (node.transportProbe !== 'NONE' && node.transportLatencyMs !== null) {
+        return 3
+    }
+
+    if (node.transportProbe === 'NONE' && node.tcpLatencyMs !== null) {
+        return 2
+    }
+
+    if (node.tcpLatencyMs !== null) {
+        return 1
+    }
+
+    return 0
+}
 const hasPreferredProbeSuccess = (node: ExternalVlessNode) => {
-    if (node.tcpLatencyMs === null) {
-        return false
-    }
-
-    if (node.transportProbe === 'NONE') {
-        return true
-    }
-
-    return node.transportLatencyMs !== null
+    return getProbePriority(node) >= 2
 }
 const getLatencyColor = (node: ExternalVlessNode) => {
     if (hasPreferredProbeSuccess(node)) {
@@ -124,15 +131,16 @@ const getTransportProbeLabel = (node: ExternalVlessNode) => {
         case 'TLS':
             return 'TLS/SNI'
         default:
-            return 'TLS/SNI'
+            return 'Transport probe'
     }
 }
+const getTransportProbeValue = (node: ExternalVlessNode) =>
+    node.transportProbe === 'NONE' ? 'не применяется' : formatLatency(node.transportLatencyMs)
 const renderProbeTooltip = (node: ExternalVlessNode) => (
     <Stack gap={2}>
         <Text size="xs">IP:port: {formatLatency(node.tcpLatencyMs)}</Text>
         <Text size="xs">
-            {getTransportProbeLabel(node)}:{' '}
-            {node.transportProbe === 'NONE' ? 'не требуется' : formatLatency(node.transportLatencyMs)}
+            {getTransportProbeLabel(node)}: {getTransportProbeValue(node)}
         </Text>
         <Text size="xs">Итог: {formatLatency(node.latencyMs)}</Text>
     </Stack>
@@ -430,10 +438,9 @@ function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps)
             return pinnedDelta
         }
 
-        const fullProbeDelta =
-            Number(hasPreferredProbeSuccess(b)) - Number(hasPreferredProbeSuccess(a))
-        if (fullProbeDelta !== 0) {
-            return fullProbeDelta
+        const probePriorityDelta = getProbePriority(b) - getProbePriority(a)
+        if (probePriorityDelta !== 0) {
+            return probePriorityDelta
         }
 
         const aliveDelta = Number(b.isAlive) - Number(a.isAlive)
