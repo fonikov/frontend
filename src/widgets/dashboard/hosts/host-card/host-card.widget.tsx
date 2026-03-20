@@ -19,6 +19,12 @@ import { XrayLogo } from '@shared/ui/logos'
 import classes from './HostCard.module.css'
 import { IProps } from './interfaces'
 
+const READY_PRESET_LABELS: Record<string, string> = {
+    'auto-black': 'BLACK',
+    'auto-white-ru-ip': 'WHITE RU',
+    'auto-white-foreign-ip': 'WHITE EN'
+}
+
 export function HostCardWidget(props: IProps) {
     const {
         nodes,
@@ -79,6 +85,18 @@ export function HostCardWidget(props: IProps) {
     }
 
     const isHostActive = !item.isDisabled
+    const isReadyHost = item.sourceType === 'READY_SUBSCRIPTION' && !!item.readySubscription
+    const readyNodes = item.readySubscription?.activeNodes || []
+    const readyPresetLabel = item.readySubscription
+        ? READY_PRESET_LABELS[item.readySubscription.presetSlug] || item.readySubscription.presetName
+        : null
+    const hostAddressLabel = isReadyHost
+        ? readyNodes
+              .map((node) =>
+                  node.latencyMs ? `${node.countryLabel} ${node.latencyMs}ms` : node.countryLabel
+              )
+              .join(' • ')
+        : `${item.address}${item.port ? `:${item.port}` : ''}`
 
     const ch = new ColorHash({ lightness: [0.65, 0.65, 0.65] })
 
@@ -124,6 +142,11 @@ export function HostCardWidget(props: IProps) {
                         </Group>
 
                         <Group gap="xs">
+                            {readyPresetLabel && (
+                                <Badge color="cyan" size="md" variant="light">
+                                    {readyPresetLabel}
+                                </Badge>
+                            )}
                             {item.tag && (
                                 <Badge
                                     autoContrast
@@ -186,8 +209,7 @@ export function HostCardWidget(props: IProps) {
                             </Text>
 
                             <Text c="dimmed" className={classes.mobileAddress} size="sm">
-                                {item.address}
-                                {item.port ? `:${item.port}` : ''}
+                                {hostAddressLabel || 'Готовая подписка'}
                             </Text>
 
                             <Stack gap="xs">
@@ -221,6 +243,22 @@ export function HostCardWidget(props: IProps) {
                                             inbound.uuid === item.inbound.configProfileInboundUuid
                                     )?.tag || 'UNKNOWN'}
                                 </Badge>
+
+                                {isReadyHost && readyNodes.length > 0 && (
+                                    <Group gap="xs">
+                                        {readyNodes.slice(0, 2).map((node) => (
+                                            <Badge
+                                                color={node.isAlive ? 'teal' : 'gray'}
+                                                key={node.dedupeKey}
+                                                leftSection={resolveCountryCode(node.countryCode || '')}
+                                                size="sm"
+                                                variant="outline"
+                                            >
+                                                {node.countryLabel}
+                                            </Badge>
+                                        ))}
+                                    </Group>
+                                )}
                             </Stack>
                         </Stack>
                     </Box>
@@ -315,14 +353,28 @@ export function HostCardWidget(props: IProps) {
                                     style={{ flexShrink: 1, minWidth: 0 }}
                                     truncate
                                 >
-                                    {item.address}
-                                    {item.port ? `:${item.port}` : ''}
+                                    {hostAddressLabel || 'Готовая подписка'}
                                 </Text>
                             </Group>
                         </Group>
 
                         <Group gap="md" style={{ flexShrink: 0 }} wrap="nowrap">
-                            {item.nodes.length > 0 &&
+                            {isReadyHost &&
+                                readyNodes.slice(0, 3).map((node) => (
+                                    <Badge
+                                        autoContrast
+                                        color={node.isAlive ? 'teal' : 'gray'}
+                                        key={node.dedupeKey}
+                                        leftSection={resolveCountryCode(node.countryCode || '')}
+                                        size="md"
+                                        variant="default"
+                                    >
+                                        {node.countryLabel}
+                                    </Badge>
+                                ))}
+
+                            {!isReadyHost &&
+                                item.nodes.length > 0 &&
                                 item.nodes.slice(0, 3).map((nodeId) => {
                                     const node = nodes.find((node) => node.uuid === nodeId)
                                     if (!node) return null
@@ -342,9 +394,15 @@ export function HostCardWidget(props: IProps) {
                                         </Badge>
                                     )
                                 })}
-                            {item.nodes.length > 3 && (
+                            {!isReadyHost && item.nodes.length > 3 && (
                                 <Badge color="gray" size="md" variant="default">
                                     +{item.nodes.length - 3}
+                                </Badge>
+                            )}
+
+                            {readyPresetLabel && (
+                                <Badge color="cyan" size="md" variant="light">
+                                    {readyPresetLabel}
                                 </Badge>
                             )}
 

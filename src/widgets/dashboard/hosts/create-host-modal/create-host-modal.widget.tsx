@@ -17,8 +17,8 @@ import {
 } from '@shared/api/hooks'
 import { MODALS, useModalClose, useModalState } from '@entities/dashboard/modal-store'
 import { BaseOverlayHeader } from '@shared/ui/overlays/base-overlay-header'
-import { ReadySubscriptionsPanelWidget } from '@widgets/dashboard/hosts/external-vless-manager'
 import { BaseHostForm } from '@shared/ui/forms/hosts/base-host-form'
+import { ReadySubscriptionHostFormWidget } from '@widgets/dashboard/hosts/ready-subscription-host-form'
 import { queryClient } from '@shared/api'
 
 export const CreateHostModalWidget = () => {
@@ -180,8 +180,8 @@ export const CreateHostModalWidget = () => {
         >
             <Tabs keepMounted onChange={setActiveTab} value={activeTab}>
                 <Tabs.List grow mb="md">
-                    <Tabs.Tab value="manual">Manual host</Tabs.Tab>
-                    <Tabs.Tab value="ready">Ready subscriptions</Tabs.Tab>
+                    <Tabs.Tab value="manual">Обычный хост</Tabs.Tab>
+                    <Tabs.Tab value="ready">Готовая подписка</Tabs.Tab>
                 </Tabs.List>
 
                 <Tabs.Panel value="manual">
@@ -199,7 +199,11 @@ export const CreateHostModalWidget = () => {
                 </Tabs.Panel>
 
                 <Tabs.Panel value="ready">
-                    <ReadySubscriptionsPanelWidget variant="full" />
+                    <ReadySubscriptionHostFormWidget
+                        configProfiles={configProfiles?.configProfiles ?? []}
+                        mode="create"
+                        onSubmitted={handleClose}
+                    />
                 </Tabs.Panel>
             </Tabs>
         </Drawer>

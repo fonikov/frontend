@@ -1,15 +1,16 @@
-import { GetAllHostsCommand, GetConfigProfilesCommand } from '@remnawave/backend-contract'
+import { GetConfigProfilesCommand } from '@remnawave/backend-contract'
 import { Group, Stack, Text, ThemeIcon } from '@mantine/core'
 import { PiProhibit, PiPulse } from 'react-icons/pi'
 import { TbEyeOff } from 'react-icons/tb'
 
 import { MODALS, useModalsStoreOpenWithData } from '@entities/dashboard/modal-store'
+import { ExtendedHost } from '@shared/api/hooks/hosts/hosts.extended.schema'
 import { UniversalSpotlightContentShared } from '@shared/ui/universal-spotlight'
 import { XrayLogo } from '@shared/ui/logos'
 
 interface IProps {
     configProfiles: GetConfigProfilesCommand.Response['response']['configProfiles']
-    hosts: GetAllHostsCommand.Response['response']
+    hosts: ExtendedHost[]
 }
 
 export const HostsSpotlightWidget = (props: IProps) => {

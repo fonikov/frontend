@@ -13,8 +13,6 @@ import {
 } from '@dnd-kit/core'
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { GetAllHostsCommand } from '@remnawave/backend-contract'
-import { useQuery } from '@tanstack/react-query'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { useListState, useMediaQuery } from '@mantine/hooks'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
@@ -22,12 +20,8 @@ import { Box, Container, em, Stack } from '@mantine/core'
 import { motion } from 'framer-motion'
 
 import { HostsFiltersFeature } from '@features/dashboard/hosts/hosts-filters'
-import {
-    externalVlessQueryKey,
-    fetchExternalVlessPresets,
-    ReadySubscriptionsPanelWidget
-} from '@widgets/dashboard/hosts/external-vless-manager'
 import { HostCardWidget } from '@widgets/dashboard/hosts/host-card'
+import { ExtendedHost } from '@shared/api/hooks/hosts/hosts.extended.schema'
 import { useGetNodes, useReorderHosts } from '@shared/api/hooks'
 import { EmptyPageLayout } from '@shared/ui/layouts/empty-page'
 
@@ -36,9 +30,7 @@ import { IProps } from './interfaces'
 export const HostsTableWidget = memo((props: IProps) => {
     const { configProfiles, hosts, hostTags, selectedHosts, setSelectedHosts } = props
     const [state, handlers] = useListState(hosts || [])
-    const [draggedHost, setDraggedHost] = useState<
-        GetAllHostsCommand.Response['response'][number] | null
-    >(null)
+    const [draggedHost, setDraggedHost] = useState<ExtendedHost | null>(null)
     const [searchValue, setSearchValue] = useState<null | string>(null)
     const [searchAddressValue, setSearchAddressValue] = useState<null | string>(null)
 
@@ -47,20 +39,7 @@ export const HostsTableWidget = memo((props: IProps) => {
     const isMobile = useMediaQuery(`(max-width: ${em(768)})`)
 
     const { data: nodes } = useGetNodes()
-    const { data: externalPresets } = useQuery({
-        queryKey: externalVlessQueryKey,
-        queryFn: fetchExternalVlessPresets
-    })
     const { mutate: reorderHosts } = useReorderHosts()
-
-    const mergedHostTags = [
-        ...new Set([
-            ...(hostTags || []),
-            ...((externalPresets || [])
-                .flatMap((preset) => preset.nodes)
-                .flatMap((node) => node.effectiveTags || []))
-        ])
-    ].sort()
 
     const virtualizer = useWindowVirtualizer({
         count: state.length,
@@ -231,18 +210,14 @@ export const HostsTableWidget = memo((props: IProps) => {
                 handleSearchSelect={handleSearchSelect}
                 searchAddressData={searchAddressOptions}
                 searchAddressValue={searchAddressValue}
-                hostTags={mergedHostTags}
+                hostTags={hostTags || []}
                 searchOptions={searchOptions}
                 searchValue={searchValue}
                 setSearchAddressValue={setSearchAddressValue}
                 setSearchValue={setSearchValue}
             />
 
-            <ReadySubscriptionsPanelWidget variant="active" />
-
-            {hosts.length === 0 && (!externalPresets || externalPresets.length === 0) && (
-                <EmptyPageLayout />
-            )}
+            {hosts.length === 0 && <EmptyPageLayout />}
 
             {hosts.length > 0 && (
                 <DndContext

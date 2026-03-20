@@ -21,6 +21,7 @@ import {
 import { MODALS, useModalClose, useModalState } from '@entities/dashboard/modal-store'
 import { BaseOverlayHeader } from '@shared/ui/overlays/base-overlay-header'
 import { BaseHostForm } from '@shared/ui/forms/hosts/base-host-form'
+import { ReadySubscriptionHostFormWidget } from '@widgets/dashboard/hosts/ready-subscription-host-form'
 import { cloneString } from '@shared/utils/misc/clone-string'
 import { queryClient } from '@shared/api'
 import {} from '@entities/dashboard'
@@ -311,18 +312,27 @@ export const EditHostModalWidget = memo(() => {
             }
         >
             {host && (
-                <BaseHostForm
-                    advancedOpened={advancedOpened}
-                    configProfiles={configProfiles?.configProfiles ?? []}
-                    form={form}
-                    handleCloneHost={handleCloneHost}
-                    handleSubmit={handleSubmit}
-                    internalSquads={internalSquads?.internalSquads ?? []}
-                    isSubmitting={isUpdateHostPending}
-                    nodes={nodes!}
-                    setAdvancedOpened={setAdvancedOpened}
-                    subscriptionTemplates={templates?.templates ?? []}
-                />
+                host.sourceType === 'READY_SUBSCRIPTION' ? (
+                    <ReadySubscriptionHostFormWidget
+                        configProfiles={configProfiles?.configProfiles ?? []}
+                        host={host}
+                        mode="edit"
+                        onSubmitted={handleClose}
+                    />
+                ) : (
+                    <BaseHostForm
+                        advancedOpened={advancedOpened}
+                        configProfiles={configProfiles?.configProfiles ?? []}
+                        form={form}
+                        handleCloneHost={handleCloneHost}
+                        handleSubmit={handleSubmit}
+                        internalSquads={internalSquads?.internalSquads ?? []}
+                        isSubmitting={isUpdateHostPending}
+                        nodes={nodes!}
+                        setAdvancedOpened={setAdvancedOpened}
+                        subscriptionTemplates={templates?.templates ?? []}
+                    />
+                )
             )}
         </Drawer>
     )

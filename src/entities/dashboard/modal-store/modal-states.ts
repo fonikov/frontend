@@ -1,9 +1,9 @@
 import {
     GetConfigProfilesCommand,
     GetInfraProvidersCommand,
-    UpdateHostCommand
 } from '@remnawave/backend-contract'
 
+import { ExtendedHost } from '@shared/api/hooks/hosts/hosts.extended.schema'
 import { THelpDrawerAvailableScreen } from '@shared/ui/help-drawer/help-drawer.types'
 
 export const MODALS = {
@@ -38,7 +38,7 @@ export interface ModalInternalStates {
     CREATE_INFRA_BILLING_NODE_MODAL: undefined
     CREATE_INFRA_BILLING_RECORD_DRAWER: undefined
     CREATE_INFRA_PROVIDER_DRAWER: undefined
-    EDIT_HOST_MODAL: UpdateHostCommand.Response['response']
+    EDIT_HOST_MODAL: ExtendedHost
     EDIT_NODE_BY_UUID_MODAL: {
         nodeUuid: string
     }

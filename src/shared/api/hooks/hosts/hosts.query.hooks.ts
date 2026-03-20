@@ -3,6 +3,7 @@ import { createQueryKeys } from '@lukemorales/query-key-factory'
 
 import { sToMs } from '@shared/utils/time-utils'
 
+import { ExtendedGetAllHostsResponseSchema } from './hosts.extended.schema'
 import { createGetQueryHook, errorHandler } from '../../tsq-helpers'
 
 export const hostsQueryKeys = createQueryKeys('hosts', {
@@ -16,7 +17,7 @@ export const hostsQueryKeys = createQueryKeys('hosts', {
 
 export const useGetHosts = createGetQueryHook({
     endpoint: GetAllHostsCommand.TSQ_url,
-    responseSchema: GetAllHostsCommand.ResponseSchema,
+    responseSchema: ExtendedGetAllHostsResponseSchema,
     getQueryKey: () => hostsQueryKeys.getAllHosts.queryKey,
     rQueryParams: {
         refetchOnMount: true
