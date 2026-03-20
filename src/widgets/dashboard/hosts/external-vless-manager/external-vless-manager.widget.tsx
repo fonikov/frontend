@@ -11,6 +11,7 @@ import {
     Text,
     TextInput,
     Textarea,
+    Tooltip,
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -41,6 +42,9 @@ export type ExternalVlessNode = {
     rawUri: string
     remarkTags: string[]
     security: string
+    tcpLatencyMs: null | number
+    transportLatencyMs: null | number
+    transportProbe: 'HTTPS' | 'NONE' | 'TLS'
     uuid: string
 }
 
@@ -91,6 +95,48 @@ const compactBridge = (bridgeLabel: string) =>
         .filter(Boolean)
         .slice(0, 3)
         .join(' / ')
+const hasPreferredProbeSuccess = (node: ExternalVlessNode) => {
+    if (node.tcpLatencyMs === null) {
+        return false
+    }
+
+    if (node.transportProbe === 'NONE') {
+        return true
+    }
+
+    return node.transportLatencyMs !== null
+}
+const getLatencyColor = (node: ExternalVlessNode) => {
+    if (hasPreferredProbeSuccess(node)) {
+        return 'teal'
+    }
+
+    if (node.isAlive) {
+        return 'yellow'
+    }
+
+    return 'red'
+}
+const getTransportProbeLabel = (node: ExternalVlessNode) => {
+    switch (node.transportProbe) {
+        case 'HTTPS':
+            return 'TLS/SNI (HTTPS)'
+        case 'TLS':
+            return 'TLS/SNI'
+        default:
+            return 'TLS/SNI'
+    }
+}
+const renderProbeTooltip = (node: ExternalVlessNode) => (
+    <Stack gap={2}>
+        <Text size="xs">IP:port: {formatLatency(node.tcpLatencyMs)}</Text>
+        <Text size="xs">
+            {getTransportProbeLabel(node)}:{' '}
+            {node.transportProbe === 'NONE' ? 'не требуется' : formatLatency(node.transportLatencyMs)}
+        </Text>
+        <Text size="xs">Итог: {formatLatency(node.latencyMs)}</Text>
+    </Stack>
+)
 
 const ActiveEmptyState = () => (
     <Card padding="lg" radius="md" withBorder>
@@ -384,6 +430,12 @@ function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps)
             return pinnedDelta
         }
 
+        const fullProbeDelta =
+            Number(hasPreferredProbeSuccess(b)) - Number(hasPreferredProbeSuccess(a))
+        if (fullProbeDelta !== 0) {
+            return fullProbeDelta
+        }
+
         const aliveDelta = Number(b.isAlive) - Number(a.isAlive)
         if (aliveDelta !== 0) {
             return aliveDelta
@@ -395,16 +447,16 @@ function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps)
     })
 
     return (
-        <Table.ScrollContainer minWidth={isActiveVariant ? 980 : 1200}>
+        <Table.ScrollContainer minWidth={isActiveVariant ? 1060 : 1280}>
             <Table highlightOnHover striped withColumnBorders>
                 <Table.Thead>
                     <Table.Tr>
                         {!isActiveVariant && <Table.Th>Use</Table.Th>}
                         <Table.Th>Top</Table.Th>
                         <Table.Th>Pin</Table.Th>
-                        <Table.Th w={120}>Latency</Table.Th>
-                        <Table.Th w={130}>Country</Table.Th>
-                        <Table.Th w={190}>Bridge</Table.Th>
+                        <Table.Th w={150}>Latency</Table.Th>
+                        <Table.Th w={150}>Country</Table.Th>
+                        <Table.Th w={220}>Bridge</Table.Th>
                         <Table.Th>Alias</Table.Th>
                         <Table.Th>Custom tags</Table.Th>
                         <Table.Th>Detected tags</Table.Th>
@@ -448,9 +500,11 @@ function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps)
                                 />
                             </Table.Td>
                             <Table.Td>
-                                <Badge color={node.isAlive ? 'teal' : 'red'} variant="light">
-                                    {node.isAlive ? formatLatency(node.latencyMs) : 'н/д'}
-                                </Badge>
+                                <Tooltip label={renderProbeTooltip(node)} multiline withArrow>
+                                    <Badge color={getLatencyColor(node)} variant="light">
+                                        {formatLatency(node.latencyMs)}
+                                    </Badge>
+                                </Tooltip>
                             </Table.Td>
                             <Table.Td>
                                 <Badge variant="light">{compactCountry(node)}</Badge>

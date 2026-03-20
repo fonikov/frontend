@@ -20,7 +20,8 @@ import {
     Switch,
     Table,
     Text,
-    TextInput
+    TextInput,
+    Tooltip
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -67,6 +68,48 @@ const compactBridgeLabel = (bridgeLabel: string) =>
         .filter(Boolean)
         .slice(0, 3)
         .join(' / ')
+const hasPreferredProbeSuccess = (node: ExternalVlessNode) => {
+    if (node.tcpLatencyMs === null) {
+        return false
+    }
+
+    if (node.transportProbe === 'NONE') {
+        return true
+    }
+
+    return node.transportLatencyMs !== null
+}
+const getLatencyColor = (node: ExternalVlessNode) => {
+    if (hasPreferredProbeSuccess(node)) {
+        return 'teal'
+    }
+
+    if (node.isAlive) {
+        return 'yellow'
+    }
+
+    return 'red'
+}
+const getTransportProbeLabel = (node: ExternalVlessNode) => {
+    switch (node.transportProbe) {
+        case 'HTTPS':
+            return 'TLS/SNI (HTTPS)'
+        case 'TLS':
+            return 'TLS/SNI'
+        default:
+            return 'TLS/SNI'
+    }
+}
+const renderProbeTooltip = (node: ExternalVlessNode) => (
+    <Stack gap={2}>
+        <Text size="xs">IP:port: {formatLatency(node.tcpLatencyMs)}</Text>
+        <Text size="xs">
+            {getTransportProbeLabel(node)}:{' '}
+            {node.transportProbe === 'NONE' ? 'не требуется' : formatLatency(node.transportLatencyMs)}
+        </Text>
+        <Text size="xs">Итог: {formatLatency(node.latencyMs)}</Text>
+    </Stack>
+)
 
 export function ReadySubscriptionHostFormWidget({
     configProfiles,
@@ -198,6 +241,12 @@ export function ReadySubscriptionHostFormWidget({
                 const enabledDelta = Number(b.isEnabled) - Number(a.isEnabled)
                 if (enabledDelta !== 0) {
                     return enabledDelta
+                }
+
+                const fullProbeDelta =
+                    Number(hasPreferredProbeSuccess(b)) - Number(hasPreferredProbeSuccess(a))
+                if (fullProbeDelta !== 0) {
+                    return fullProbeDelta
                 }
 
                 const aliveDelta = Number(b.isAlive) - Number(a.isAlive)
@@ -385,16 +434,16 @@ export function ReadySubscriptionHostFormWidget({
                     <Divider />
 
                     <ScrollArea.Autosize mah={560}>
-                        <Table.ScrollContainer minWidth={1100}>
+                        <Table.ScrollContainer minWidth={1220}>
                             <Table highlightOnHover stickyHeader withColumnBorders>
                                 <Table.Thead>
                                     <Table.Tr>
                                         <Table.Th w={48}>Вкл</Table.Th>
                                         <Table.Th w={48}>Pin</Table.Th>
                                         <Table.Th w={320}>Сервер</Table.Th>
-                                        <Table.Th w={130}>Страна</Table.Th>
-                                        <Table.Th w={110}>Пинг</Table.Th>
-                                        <Table.Th w={180}>Мост</Table.Th>
+                                        <Table.Th w={150}>Страна</Table.Th>
+                                        <Table.Th w={150}>Пинг</Table.Th>
+                                        <Table.Th w={220}>Мост</Table.Th>
                                         <Table.Th w={100}>Статус</Table.Th>
                                     </Table.Tr>
                                 </Table.Thead>
@@ -441,12 +490,14 @@ export function ReadySubscriptionHostFormWidget({
                                                     </Group>
                                                 </Table.Td>
                                                 <Table.Td>
-                                                    <Badge
-                                                        color={node.isAlive ? 'teal' : 'red'}
-                                                        variant="light"
-                                                    >
-                                                        {formatLatency(node.latencyMs)}
-                                                    </Badge>
+                                                    <Tooltip label={renderProbeTooltip(node)} multiline withArrow>
+                                                        <Badge
+                                                            color={getLatencyColor(node)}
+                                                            variant="light"
+                                                        >
+                                                            {formatLatency(node.latencyMs)}
+                                                        </Badge>
+                                                    </Tooltip>
                                                 </Table.Td>
                                                 <Table.Td>
                                                     <Text lineClamp={1} size="sm">

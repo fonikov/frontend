@@ -13,8 +13,10 @@ interface IProps {
     templateKeys?: readonly TemplateKeys[] | readonly TSubscriptionPageTemplateKey[]
 }
 
+const EXTRA_TEMPLATE_KEYS = ['EXPIRE_DATE'] as const
+
 export const TemplateInfoPopoverShared = (props: IProps) => {
-    const { templateKeys = TEMPLATE_KEYS } = props
+    const { templateKeys = [...TEMPLATE_KEYS, ...EXTRA_TEMPLATE_KEYS] } = props
 
     const isMobile = useMediaQuery('(max-width: 768px)')
 
