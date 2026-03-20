@@ -3,7 +3,6 @@ import {
     GetConfigProfilesCommand,
     UpdateHostCommand
 } from '@remnawave/backend-contract'
-import { notifications } from '@mantine/notifications'
 import {
     ActionIcon,
     Badge,
@@ -23,21 +22,22 @@ import {
     Text,
     TextInput
 } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { TbPinned, TbPinnedFilled } from 'react-icons/tb'
 import { useEffect, useMemo, useState } from 'react'
+import { TbPinned, TbPinnedFilled } from 'react-icons/tb'
 
+import { HostSelectInboundFeature } from '@features/ui/dashboard/hosts/host-select-inbound/host-select-inbound.feature'
+import { type ExtendedHost } from '@shared/api/hooks/hosts/hosts.extended.schema'
+import { QueryKeys } from '@shared/api/hooks'
+import { instance, queryClient } from '@shared/api'
+import { resolveCountryCode } from '@shared/utils/misc/resolve-country-code'
 import {
     externalVlessQueryKey,
     fetchExternalVlessPresets,
     type ExternalVlessNode,
     type ExternalVlessPreset
 } from '@widgets/dashboard/hosts/external-vless-manager'
-import { HostSelectInboundFeature } from '@features/ui/dashboard/hosts/host-select-inbound/host-select-inbound.feature'
-import { type ExtendedHost } from '@shared/api/hooks/hosts/hosts.extended.schema'
-import { resolveCountryCode } from '@shared/utils/misc/resolve-country-code'
-import { QueryKeys } from '@shared/api/hooks'
-import { instance, queryClient } from '@shared/api'
 
 const READY_HOST_ADDRESS = 'ready-subscription.local'
 
@@ -57,6 +57,16 @@ const PRESET_TITLES: Record<string, string> = {
 }
 
 const normalizeTag = (value: string) => value.trim().toUpperCase()
+const formatLatency = (latencyMs: null | number) => (latencyMs === null ? 'н/д' : `${latencyMs} ms`)
+const compactCountryLabel = (node: ExternalVlessNode) =>
+    (node.countryCode || node.countryLabel || 'N/A').toUpperCase()
+const compactBridgeLabel = (bridgeLabel: string) =>
+    bridgeLabel
+        .split('/')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(' / ')
 
 export function ReadySubscriptionHostFormWidget({
     configProfiles,
@@ -98,7 +108,7 @@ export function ReadySubscriptionHostFormWidget({
             await invalidateHosts()
             notifications.show({
                 color: 'teal',
-                message: 'Ready-хост создан'
+                message: 'Готовый хост создан'
             })
             onSubmitted()
         }
@@ -111,7 +121,7 @@ export function ReadySubscriptionHostFormWidget({
             await invalidateHosts()
             notifications.show({
                 color: 'teal',
-                message: 'Ready-хост обновлен'
+                message: 'Готовый хост обновлен'
             })
             onSubmitted()
         }
@@ -161,22 +171,45 @@ export function ReadySubscriptionHostFormWidget({
         }
 
         const normalizedSearch = search.trim().toLowerCase()
-        return selectedPreset.nodes.filter((node: ExternalVlessNode) => {
-            if (!normalizedSearch) {
-                return true
-            }
+        return selectedPreset.nodes
+            .filter((node: ExternalVlessNode) => {
+                if (!normalizedSearch) {
+                    return true
+                }
 
-            return [
-                node.displayName,
-                node.countryLabel,
-                node.bridgeLabel,
-                node.originalRemark
-            ]
-                .join(' ')
-                .toLowerCase()
-                .includes(normalizedSearch)
-        })
-    }, [search, selectedPreset])
+                return [node.displayName, node.countryLabel, node.bridgeLabel, node.originalRemark]
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(normalizedSearch)
+            })
+            .sort((a, b) => {
+                const selectedDelta =
+                    Number(selectedNodeIds.includes(b.uuid)) - Number(selectedNodeIds.includes(a.uuid))
+                if (selectedDelta !== 0) {
+                    return selectedDelta
+                }
+
+                const pinnedDelta =
+                    Number(pinnedNodeIds.includes(b.uuid)) - Number(pinnedNodeIds.includes(a.uuid))
+                if (pinnedDelta !== 0) {
+                    return pinnedDelta
+                }
+
+                const enabledDelta = Number(b.isEnabled) - Number(a.isEnabled)
+                if (enabledDelta !== 0) {
+                    return enabledDelta
+                }
+
+                const aliveDelta = Number(b.isAlive) - Number(a.isAlive)
+                if (aliveDelta !== 0) {
+                    return aliveDelta
+                }
+
+                const latencyA = a.latencyMs ?? Number.MAX_SAFE_INTEGER
+                const latencyB = b.latencyMs ?? Number.MAX_SAFE_INTEGER
+                return latencyA - latencyB
+            })
+    }, [search, selectedPreset, selectedNodeIds, pinnedNodeIds])
 
     const toggleNode = (nodeUuid: string) => {
         setSelectedNodeIds((prev) =>
@@ -190,13 +223,9 @@ export function ReadySubscriptionHostFormWidget({
     }
 
     const togglePinned = (nodeUuid: string) => {
-        setSelectedNodeIds((prev) =>
-            prev.includes(nodeUuid) ? prev : [...prev, nodeUuid]
-        )
+        setSelectedNodeIds((prev) => (prev.includes(nodeUuid) ? prev : [...prev, nodeUuid]))
         setPinnedNodeIds((prev) =>
-            prev.includes(nodeUuid)
-                ? prev.filter((item) => item !== nodeUuid)
-                : [...prev, nodeUuid]
+            prev.includes(nodeUuid) ? prev.filter((item) => item !== nodeUuid) : [...prev, nodeUuid]
         )
     }
 
@@ -270,8 +299,7 @@ export function ReadySubscriptionHostFormWidget({
         createReadyHostMutation.mutate(payload as CreateHostCommand.Request)
     }
 
-    const isSubmitting =
-        createReadyHostMutation.isPending || updateReadyHostMutation.isPending
+    const isSubmitting = createReadyHostMutation.isPending || updateReadyHostMutation.isPending
 
     return (
         <Stack gap="md">
@@ -306,7 +334,7 @@ export function ReadySubscriptionHostFormWidget({
                         <div>
                             <Text fw={700}>Готовая подписка</Text>
                             <Text c="dimmed" size="sm">
-                                Выбери категорию, отметь конкретные серверы и закрепи обязательные.
+                                Выбери категорию, отметь серверы и закрепи обязательные.
                             </Text>
                         </div>
                         <Badge variant="light">Выбрано: {selectedNodeIds.length}</Badge>
@@ -356,92 +384,96 @@ export function ReadySubscriptionHostFormWidget({
 
                     <Divider />
 
-                    <ScrollArea.Autosize mah={460}>
-                        <Table highlightOnHover stickyHeader>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th w={48}>Вкл</Table.Th>
-                                    <Table.Th w={48}>Pin</Table.Th>
-                                    <Table.Th>Сервер</Table.Th>
-                                    <Table.Th>Страна</Table.Th>
-                                    <Table.Th>Ping</Table.Th>
-                                    <Table.Th>Мост</Table.Th>
-                                    <Table.Th>Статус</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {filteredNodes.map((node: ExternalVlessNode) => {
-                                    const isSelected = selectedNodeIds.includes(node.uuid)
-                                    const isPinned = pinnedNodeIds.includes(node.uuid)
+                    <ScrollArea.Autosize mah={560}>
+                        <Table.ScrollContainer minWidth={1100}>
+                            <Table highlightOnHover stickyHeader withColumnBorders>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th w={48}>Вкл</Table.Th>
+                                        <Table.Th w={48}>Pin</Table.Th>
+                                        <Table.Th w={320}>Сервер</Table.Th>
+                                        <Table.Th w={130}>Страна</Table.Th>
+                                        <Table.Th w={110}>Пинг</Table.Th>
+                                        <Table.Th w={180}>Мост</Table.Th>
+                                        <Table.Th w={100}>Статус</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {filteredNodes.map((node: ExternalVlessNode) => {
+                                        const isSelected = selectedNodeIds.includes(node.uuid)
+                                        const isPinned = pinnedNodeIds.includes(node.uuid)
 
-                                    return (
-                                        <Table.Tr key={node.uuid}>
-                                            <Table.Td>
-                                                <Checkbox
-                                                    checked={isSelected}
-                                                    onChange={() => toggleNode(node.uuid)}
-                                                />
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <ActionIcon
-                                                    color={isPinned ? 'yellow' : 'gray'}
-                                                    onClick={() => togglePinned(node.uuid)}
-                                                    variant="subtle"
-                                                >
-                                                    {isPinned ? (
-                                                        <TbPinnedFilled size={18} />
-                                                    ) : (
-                                                        <TbPinned size={18} />
-                                                    )}
-                                                </ActionIcon>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Stack gap={2}>
-                                                    <Text fw={600} size="sm">
-                                                        {node.displayName}
+                                        return (
+                                            <Table.Tr key={node.uuid}>
+                                                <Table.Td>
+                                                    <Checkbox
+                                                        checked={isSelected}
+                                                        onChange={() => toggleNode(node.uuid)}
+                                                    />
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <ActionIcon
+                                                        color={isPinned ? 'yellow' : 'gray'}
+                                                        onClick={() => togglePinned(node.uuid)}
+                                                        variant="subtle"
+                                                    >
+                                                        {isPinned ? (
+                                                            <TbPinnedFilled size={18} />
+                                                        ) : (
+                                                            <TbPinned size={18} />
+                                                        )}
+                                                    </ActionIcon>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Stack gap={2}>
+                                                        <Text fw={600} lineClamp={1} size="sm">
+                                                            {node.displayName}
+                                                        </Text>
+                                                        <Text c="dimmed" lineClamp={1} size="xs">
+                                                            {node.originalRemark}
+                                                        </Text>
+                                                    </Stack>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Group gap={6} wrap="nowrap">
+                                                        <Box>{resolveCountryCode(node.countryCode || '')}</Box>
+                                                        <Text size="sm">{compactCountryLabel(node)}</Text>
+                                                    </Group>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Badge
+                                                        color={node.isAlive ? 'teal' : 'red'}
+                                                        variant="light"
+                                                    >
+                                                        {formatLatency(node.latencyMs)}
+                                                    </Badge>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Text lineClamp={1} size="sm">
+                                                        {compactBridgeLabel(node.bridgeLabel)}
                                                     </Text>
-                                                    <Text c="dimmed" size="xs">
-                                                        {node.originalRemark}
-                                                    </Text>
-                                                </Stack>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap={6} wrap="nowrap">
-                                                    <Box>{resolveCountryCode(node.countryCode || '')}</Box>
-                                                    <Text size="sm">{node.countryLabel}</Text>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Badge
-                                                    color={node.isAlive ? 'teal' : 'red'}
-                                                    variant="light"
-                                                >
-                                                    {node.latencyMs ? `${node.latencyMs} ms` : 'таймаут'}
-                                                </Badge>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="sm">{node.bridgeLabel}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Badge
-                                                    color={node.isAlive ? 'teal' : 'gray'}
-                                                    variant="outline"
-                                                >
-                                                    {node.isAlive ? 'жив' : 'мертв'}
-                                                </Badge>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    )
-                                })}
-                            </Table.Tbody>
-                        </Table>
+                                                </Table.Td>
+                                                <Table.Td>
+                                                    <Badge
+                                                        color={node.isAlive ? 'teal' : 'gray'}
+                                                        variant="outline"
+                                                    >
+                                                        {node.isAlive ? 'онлайн' : 'оффлайн'}
+                                                    </Badge>
+                                                </Table.Td>
+                                            </Table.Tr>
+                                        )
+                                    })}
+                                </Table.Tbody>
+                            </Table>
+                        </Table.ScrollContainer>
                     </ScrollArea.Autosize>
                 </Stack>
             </Card>
 
             <Group justify="flex-end">
                 <Button loading={isFetching || isSubmitting} onClick={submit}>
-                    {mode === 'edit' ? 'Сохранить ready-хост' : 'Добавить ready-хост'}
+                    {mode === 'edit' ? 'Сохранить готовый хост' : 'Добавить готовый хост'}
                 </Button>
             </Group>
         </Stack>

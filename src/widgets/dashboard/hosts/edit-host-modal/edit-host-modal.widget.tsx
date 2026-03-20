@@ -24,7 +24,6 @@ import { BaseHostForm } from '@shared/ui/forms/hosts/base-host-form'
 import { ReadySubscriptionHostFormWidget } from '@widgets/dashboard/hosts/ready-subscription-host-form'
 import { cloneString } from '@shared/utils/misc/clone-string'
 import { queryClient } from '@shared/api'
-import {} from '@entities/dashboard'
 
 export const EditHostModalWidget = memo(() => {
     const { t } = useTranslation()
@@ -300,7 +299,7 @@ export const EditHostModalWidget = memo(() => {
             overlayProps={{ backgroundOpacity: 0.6, blur: 0 }}
             padding="lg"
             position="right"
-            size="lg"
+            size="min(1400px, 96vw)"
             title={
                 <BaseOverlayHeader
                     IconComponent={PiListChecks}

@@ -7,6 +7,9 @@ import { useForm } from '@mantine/form'
 import { Drawer, Tabs } from '@mantine/core'
 import { useState } from 'react'
 
+import { MODALS, useModalClose, useModalState } from '@entities/dashboard/modal-store'
+import { BaseHostForm } from '@shared/ui/forms/hosts/base-host-form'
+import { BaseOverlayHeader } from '@shared/ui/overlays/base-overlay-header'
 import {
     QueryKeys,
     useCreateHost,
@@ -15,11 +18,8 @@ import {
     useGetNodes,
     useGetSubscriptionTemplates
 } from '@shared/api/hooks'
-import { MODALS, useModalClose, useModalState } from '@entities/dashboard/modal-store'
-import { BaseOverlayHeader } from '@shared/ui/overlays/base-overlay-header'
-import { BaseHostForm } from '@shared/ui/forms/hosts/base-host-form'
-import { ReadySubscriptionHostFormWidget } from '@widgets/dashboard/hosts/ready-subscription-host-form'
 import { queryClient } from '@shared/api'
+import { ReadySubscriptionHostFormWidget } from '@widgets/dashboard/hosts/ready-subscription-host-form'
 
 export const CreateHostModalWidget = () => {
     const { t } = useTranslation()
@@ -45,7 +45,6 @@ export const CreateHostModalWidget = () => {
             }
         },
         validate: zodResolver(CreateHostCommand.RequestSchema),
-
         initialValues: {
             securityLayer: SECURITY_LAYERS.DEFAULT,
             port: 0,
@@ -86,7 +85,6 @@ export const CreateHostModalWidget = () => {
                 message: t('create-host-modal.widget.please-select-the-config-profile-and-inbound'),
                 color: 'red'
             })
-
             return null
         }
 
@@ -95,36 +93,25 @@ export const CreateHostModalWidget = () => {
         let sockoptParams
 
         try {
-            if (values.xHttpExtraParams === '') {
-                xHttpExtraParams = null
-            } else {
-                xHttpExtraParams = JSON.parse(values.xHttpExtraParams as unknown as string)
-            }
+            xHttpExtraParams =
+                values.xHttpExtraParams === ''
+                    ? null
+                    : JSON.parse(values.xHttpExtraParams as unknown as string)
         } catch {
             xHttpExtraParams = null
-            // silence
         }
 
         try {
-            if (values.muxParams === '') {
-                muxParams = null
-            } else {
-                muxParams = JSON.parse(values.muxParams as unknown as string)
-            }
+            muxParams = values.muxParams === '' ? null : JSON.parse(values.muxParams as unknown as string)
         } catch {
             muxParams = null
-            // silence
         }
 
         try {
-            if (values.sockoptParams === '') {
-                sockoptParams = null
-            } else {
-                sockoptParams = JSON.parse(values.sockoptParams as unknown as string)
-            }
+            sockoptParams =
+                values.sockoptParams === '' ? null : JSON.parse(values.sockoptParams as unknown as string)
         } catch {
             sockoptParams = null
-            // silence
         }
 
         createHost({
@@ -151,7 +138,7 @@ export const CreateHostModalWidget = () => {
         }
 
         const configProfile = configProfiles?.configProfiles.find(
-            (configProfile) => configProfile.uuid === configProfileUuid
+            (configProfileItem) => configProfileItem.uuid === configProfileUuid
         )
         if (configProfile) {
             form.setFieldValue(
@@ -169,7 +156,7 @@ export const CreateHostModalWidget = () => {
             overlayProps={{ backgroundOpacity: 0.6, blur: 0 }}
             padding="lg"
             position="right"
-            size="lg"
+            size="min(1400px, 96vw)"
             title={
                 <BaseOverlayHeader
                     IconComponent={PiListChecks}

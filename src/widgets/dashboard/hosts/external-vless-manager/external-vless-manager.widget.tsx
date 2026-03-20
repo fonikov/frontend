@@ -81,6 +81,16 @@ export const fetchExternalVlessPresets = async () => {
 
 const normalizeTagString = (value: string) =>
     [...new Set(value.split(/[,\s;]+/).map((tag) => tag.trim().toUpperCase()).filter(Boolean))]
+const formatLatency = (latencyMs: null | number) => (latencyMs === null ? 'н/д' : `${latencyMs} ms`)
+const compactCountry = (node: ExternalVlessNode) =>
+    (node.countryCode || node.countryLabel || 'N/A').toUpperCase()
+const compactBridge = (bridgeLabel: string) =>
+    bridgeLabel
+        .split('/')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(' / ')
 
 const ActiveEmptyState = () => (
     <Card padding="lg" radius="md" withBorder>
@@ -358,6 +368,32 @@ type TTableProps = {
 }
 
 function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps) {
+    const sortedNodes = [...nodes].sort((a, b) => {
+        const selectedDelta = Number(b.isSelectedForSubscription) - Number(a.isSelectedForSubscription)
+        if (selectedDelta !== 0) {
+            return selectedDelta
+        }
+
+        const enabledDelta = Number(b.isEnabled) - Number(a.isEnabled)
+        if (enabledDelta !== 0) {
+            return enabledDelta
+        }
+
+        const pinnedDelta = Number(b.isPinned) - Number(a.isPinned)
+        if (pinnedDelta !== 0) {
+            return pinnedDelta
+        }
+
+        const aliveDelta = Number(b.isAlive) - Number(a.isAlive)
+        if (aliveDelta !== 0) {
+            return aliveDelta
+        }
+
+        const latencyA = a.latencyMs ?? Number.MAX_SAFE_INTEGER
+        const latencyB = b.latencyMs ?? Number.MAX_SAFE_INTEGER
+        return latencyA - latencyB
+    })
+
     return (
         <Table.ScrollContainer minWidth={isActiveVariant ? 980 : 1200}>
             <Table highlightOnHover striped withColumnBorders>
@@ -366,9 +402,9 @@ function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps)
                         {!isActiveVariant && <Table.Th>Use</Table.Th>}
                         <Table.Th>Top</Table.Th>
                         <Table.Th>Pin</Table.Th>
-                        <Table.Th>Latency</Table.Th>
-                        <Table.Th>Country</Table.Th>
-                        <Table.Th>Bridge</Table.Th>
+                        <Table.Th w={120}>Latency</Table.Th>
+                        <Table.Th w={130}>Country</Table.Th>
+                        <Table.Th w={190}>Bridge</Table.Th>
                         <Table.Th>Alias</Table.Th>
                         <Table.Th>Custom tags</Table.Th>
                         <Table.Th>Detected tags</Table.Th>
@@ -376,7 +412,7 @@ function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps)
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                    {nodes.map((node) => (
+                    {sortedNodes.map((node) => (
                         <Table.Tr key={node.uuid}>
                             {!isActiveVariant && (
                                 <Table.Td>
@@ -413,14 +449,14 @@ function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps)
                             </Table.Td>
                             <Table.Td>
                                 <Badge color={node.isAlive ? 'teal' : 'red'} variant="light">
-                                    {node.isAlive ? `${node.latencyMs ?? '?'} ms` : 'offline'}
+                                    {node.isAlive ? formatLatency(node.latencyMs) : 'н/д'}
                                 </Badge>
                             </Table.Td>
                             <Table.Td>
-                                <Badge variant="light">{node.countryLabel}</Badge>
+                                <Badge variant="light">{compactCountry(node)}</Badge>
                             </Table.Td>
                             <Table.Td>
-                                <Badge variant="outline">{node.bridgeLabel}</Badge>
+                                <Badge variant="outline">{compactBridge(node.bridgeLabel)}</Badge>
                             </Table.Td>
                             <Table.Td miw={240}>
                                 <TextInput
