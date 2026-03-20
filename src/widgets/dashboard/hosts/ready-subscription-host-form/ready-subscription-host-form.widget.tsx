@@ -238,18 +238,6 @@ export function ReadySubscriptionHostFormWidget({
                     .includes(normalizedSearch)
             })
             .sort((a, b) => {
-                const selectedDelta =
-                    Number(selectedNodeIdSet.has(b.uuid)) - Number(selectedNodeIdSet.has(a.uuid))
-                if (selectedDelta !== 0) {
-                    return selectedDelta
-                }
-
-                const pinnedDelta =
-                    Number(pinnedNodeIdSet.has(b.uuid)) - Number(pinnedNodeIdSet.has(a.uuid))
-                if (pinnedDelta !== 0) {
-                    return pinnedDelta
-                }
-
                 const enabledDelta = Number(b.isEnabled) - Number(a.isEnabled)
                 if (enabledDelta !== 0) {
                     return enabledDelta
@@ -276,19 +264,12 @@ export function ReadySubscriptionHostFormWidget({
             return filteredNodes
         }
 
-        const prioritized = filteredNodes.filter(
-            (node) => selectedNodeIdSet.has(node.uuid) || pinnedNodeIdSet.has(node.uuid)
+        return filteredNodes.filter(
+            (node, index) =>
+                index < MAX_VISIBLE_READY_HOST_ROWS ||
+                selectedNodeIdSet.has(node.uuid) ||
+                pinnedNodeIdSet.has(node.uuid)
         )
-        const remainingSlots = Math.max(
-            0,
-            Math.max(MAX_VISIBLE_READY_HOST_ROWS, prioritized.length) - prioritized.length
-        )
-        const prioritizedIds = new Set(prioritized.map((node) => node.uuid))
-        const tail = filteredNodes
-            .filter((node) => !prioritizedIds.has(node.uuid))
-            .slice(0, remainingSlots)
-
-        return [...prioritized, ...tail]
     }, [filteredNodes, pinnedNodeIdSet, selectedNodeIdSet])
 
     const toggleNode = (nodeUuid: string) => {
