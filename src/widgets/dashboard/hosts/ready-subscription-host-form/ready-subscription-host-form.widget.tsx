@@ -101,6 +101,8 @@ const getTransportProbeLabel = (node: ExternalVlessNode) => {
     switch (node.transportProbe) {
         case 'HTTPS':
             return 'TLS/SNI (HTTPS)'
+        case 'REALITY':
+            return 'REALITY'
         case 'TLS':
             return 'TLS/SNI'
         default:

@@ -44,7 +44,7 @@ export type ExternalVlessNode = {
     security: string
     tcpLatencyMs: null | number
     transportLatencyMs: null | number
-    transportProbe: 'HTTPS' | 'NONE' | 'TLS'
+    transportProbe: 'HTTPS' | 'NONE' | 'REALITY' | 'TLS'
     uuid: string
 }
 
@@ -128,6 +128,8 @@ const getTransportProbeLabel = (node: ExternalVlessNode) => {
     switch (node.transportProbe) {
         case 'HTTPS':
             return 'TLS/SNI (HTTPS)'
+        case 'REALITY':
+            return 'REALITY'
         case 'TLS':
             return 'TLS/SNI'
         default:
