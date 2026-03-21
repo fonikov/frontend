@@ -219,6 +219,28 @@ export function ReadySubscriptionHostFormWidget({
     )
     const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds])
     const pinnedNodeIdSet = useMemo(() => new Set(pinnedNodeIds), [pinnedNodeIds])
+    const initialSelectedNodeIdSet = useMemo(() => {
+        if (mode !== 'edit' || !host?.readySubscription || host.readySubscription.presetUuid !== presetUuid) {
+            return new Set<string>()
+        }
+
+        return new Set(
+            host.readySubscription.selectedNodes
+                .map((node) => node.uuid)
+                .filter((uuid): uuid is string => Boolean(uuid))
+        )
+    }, [host, mode, presetUuid])
+    const initialPinnedNodeIdSet = useMemo(() => {
+        if (mode !== 'edit' || !host?.readySubscription || host.readySubscription.presetUuid !== presetUuid) {
+            return new Set<string>()
+        }
+
+        return new Set(
+            host.readySubscription.selectedNodes
+                .filter((node) => node.isPinned && node.uuid)
+                .map((node) => node.uuid as string)
+        )
+    }, [host, mode, presetUuid])
 
     const filteredNodes = useMemo(() => {
         if (!selectedPreset) {
@@ -238,6 +260,18 @@ export function ReadySubscriptionHostFormWidget({
                     .includes(normalizedSearch)
             })
             .sort((a, b) => {
+                const initialSelectedDelta =
+                    Number(initialSelectedNodeIdSet.has(b.uuid)) - Number(initialSelectedNodeIdSet.has(a.uuid))
+                if (initialSelectedDelta !== 0) {
+                    return initialSelectedDelta
+                }
+
+                const initialPinnedDelta =
+                    Number(initialPinnedNodeIdSet.has(b.uuid)) - Number(initialPinnedNodeIdSet.has(a.uuid))
+                if (initialPinnedDelta !== 0) {
+                    return initialPinnedDelta
+                }
+
                 const enabledDelta = Number(b.isEnabled) - Number(a.isEnabled)
                 if (enabledDelta !== 0) {
                     return enabledDelta
@@ -257,7 +291,7 @@ export function ReadySubscriptionHostFormWidget({
                 const latencyB = b.latencyMs ?? Number.MAX_SAFE_INTEGER
                 return latencyA - latencyB
             })
-    }, [deferredSearch, pinnedNodeIdSet, selectedNodeIdSet, selectedPreset])
+    }, [deferredSearch, initialPinnedNodeIdSet, initialSelectedNodeIdSet, selectedPreset])
 
     const visibleNodes = useMemo(() => {
         if (filteredNodes.length <= MAX_VISIBLE_READY_HOST_ROWS) {
