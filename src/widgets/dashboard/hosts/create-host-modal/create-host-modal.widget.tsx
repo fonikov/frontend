@@ -19,7 +19,7 @@ import {
     useGetSubscriptionTemplates
 } from '@shared/api/hooks'
 import { queryClient } from '@shared/api'
-import { ReadySubscriptionHostFormWidget } from '@widgets/dashboard/hosts/ready-subscription-host-form'
+import { VlessSubscriptionImportFormWidget } from '@widgets/dashboard/hosts/vless-subscription-import-form'
 
 export const CreateHostModalWidget = () => {
     const { t } = useTranslation()
@@ -102,14 +102,17 @@ export const CreateHostModalWidget = () => {
         }
 
         try {
-            muxParams = values.muxParams === '' ? null : JSON.parse(values.muxParams as unknown as string)
+            muxParams =
+                values.muxParams === '' ? null : JSON.parse(values.muxParams as unknown as string)
         } catch {
             muxParams = null
         }
 
         try {
             sockoptParams =
-                values.sockoptParams === '' ? null : JSON.parse(values.sockoptParams as unknown as string)
+                values.sockoptParams === ''
+                    ? null
+                    : JSON.parse(values.sockoptParams as unknown as string)
         } catch {
             sockoptParams = null
         }
@@ -167,8 +170,8 @@ export const CreateHostModalWidget = () => {
         >
             <Tabs keepMounted onChange={setActiveTab} value={activeTab}>
                 <Tabs.List grow mb="md">
-                    <Tabs.Tab value="manual">Обычный хост</Tabs.Tab>
-                    <Tabs.Tab value="ready">Готовая подписка</Tabs.Tab>
+                    <Tabs.Tab value="manual">Manual host</Tabs.Tab>
+                    <Tabs.Tab value="ready">VLESS subscription import</Tabs.Tab>
                 </Tabs.List>
 
                 <Tabs.Panel value="manual">
@@ -186,9 +189,8 @@ export const CreateHostModalWidget = () => {
                 </Tabs.Panel>
 
                 <Tabs.Panel value="ready">
-                    <ReadySubscriptionHostFormWidget
+                    <VlessSubscriptionImportFormWidget
                         configProfiles={configProfiles?.configProfiles ?? []}
-                        mode="create"
                         onSubmitted={handleClose}
                     />
                 </Tabs.Panel>

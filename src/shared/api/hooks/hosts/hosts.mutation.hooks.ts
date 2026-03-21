@@ -13,6 +13,10 @@ import { notifications } from '@mantine/notifications'
 
 import { createMutationHook } from '../../tsq-helpers'
 import { ImportHostInputSchema, ImportHostResponseSchema } from './import-host.schema'
+import {
+    ImportVlessSubscriptionRequestSchema,
+    ImportVlessSubscriptionResponseSchema
+} from './import-vless-subscription.schema'
 
 export const useCreateHost = createMutationHook({
     endpoint: CreateHostCommand.TSQ_url,
@@ -232,6 +236,23 @@ export const useImportHostInput = createMutationHook({
         onError: (error) => {
             notifications.show({
                 title: 'Import Host Input',
+                message:
+                    error instanceof Error ? error.message : 'Request failed with unknown error.',
+                color: 'red'
+            })
+        }
+    }
+})
+
+export const useImportHostsFromVlessSubscription = createMutationHook({
+    endpoint: '/api/hosts/actions/import-subscription',
+    bodySchema: ImportVlessSubscriptionRequestSchema,
+    responseSchema: ImportVlessSubscriptionResponseSchema,
+    requestMethod: 'post',
+    rMutationParams: {
+        onError: (error) => {
+            notifications.show({
+                title: 'Import VLESS Subscription',
                 message:
                     error instanceof Error ? error.message : 'Request failed with unknown error.',
                 color: 'red'
