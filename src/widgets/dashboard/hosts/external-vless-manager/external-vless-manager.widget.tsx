@@ -86,6 +86,13 @@ export const fetchExternalVlessPresets = async () => {
 const normalizeTagString = (value: string) =>
     [...new Set(value.split(/[,\s;]+/).map((tag) => tag.trim().toUpperCase()).filter(Boolean))]
 const formatLatency = (latencyMs: null | number) => (latencyMs === null ? 'н/д' : `${latencyMs} ms`)
+const getPreferredDisplayedLatency = (node: ExternalVlessNode) => {
+    if (node.transportProbe !== 'NONE' && node.transportLatencyMs !== null) {
+        return node.transportLatencyMs
+    }
+
+    return node.tcpLatencyMs ?? node.latencyMs
+}
 const compactCountry = (node: ExternalVlessNode) =>
     (node.countryCode || node.countryLabel || 'N/A').toUpperCase()
 const compactBridge = (bridgeLabel: string) =>
@@ -137,14 +144,18 @@ const getTransportProbeLabel = (node: ExternalVlessNode) => {
     }
 }
 const getTransportProbeValue = (node: ExternalVlessNode) =>
-    node.transportProbe === 'NONE' ? 'не применяется' : formatLatency(node.transportLatencyMs)
+    node.transportProbe === 'NONE'
+        ? 'не применяется'
+        : node.transportLatencyMs === null
+          ? 'не прошел'
+          : formatLatency(node.transportLatencyMs)
 const renderProbeTooltip = (node: ExternalVlessNode) => (
     <Stack gap={2}>
-        <Text size="xs">IP:port: {formatLatency(node.tcpLatencyMs)}</Text>
         <Text size="xs">
             {getTransportProbeLabel(node)}: {getTransportProbeValue(node)}
         </Text>
-        <Text size="xs">Итог: {formatLatency(node.latencyMs)}</Text>
+        <Text size="xs">IP:port: {formatLatency(node.tcpLatencyMs)}</Text>
+        <Text size="xs">Итог: {formatLatency(getPreferredDisplayedLatency(node))}</Text>
     </Stack>
 )
 
@@ -450,8 +461,8 @@ function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps)
             return aliveDelta
         }
 
-        const latencyA = a.latencyMs ?? Number.MAX_SAFE_INTEGER
-        const latencyB = b.latencyMs ?? Number.MAX_SAFE_INTEGER
+        const latencyA = getPreferredDisplayedLatency(a) ?? Number.MAX_SAFE_INTEGER
+        const latencyB = getPreferredDisplayedLatency(b) ?? Number.MAX_SAFE_INTEGER
         return latencyA - latencyB
     })
 
@@ -511,7 +522,7 @@ function PresetNodesTable({ nodes, nodeMutation, isActiveVariant }: TTableProps)
                             <Table.Td>
                                 <Tooltip label={renderProbeTooltip(node)} multiline withArrow>
                                     <Badge color={getLatencyColor(node)} variant="light">
-                                        {formatLatency(node.latencyMs)}
+                                        {formatLatency(getPreferredDisplayedLatency(node))}
                                     </Badge>
                                 </Tooltip>
                             </Table.Td>

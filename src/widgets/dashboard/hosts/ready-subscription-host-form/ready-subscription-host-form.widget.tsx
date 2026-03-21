@@ -59,6 +59,13 @@ const PRESET_TITLES: Record<string, string> = {
 
 const normalizeTag = (value: string) => value.trim().toUpperCase()
 const formatLatency = (latencyMs: null | number) => (latencyMs === null ? 'н/д' : `${latencyMs} ms`)
+const getPreferredDisplayedLatency = (node: ExternalVlessNode) => {
+    if (node.transportProbe !== 'NONE' && node.transportLatencyMs !== null) {
+        return node.transportLatencyMs
+    }
+
+    return node.tcpLatencyMs ?? node.latencyMs
+}
 const compactCountryLabel = (node: ExternalVlessNode) =>
     (node.countryCode || node.countryLabel || 'N/A').toUpperCase()
 const compactBridgeLabel = (bridgeLabel: string) =>
@@ -110,14 +117,18 @@ const getTransportProbeLabel = (node: ExternalVlessNode) => {
     }
 }
 const getTransportProbeValue = (node: ExternalVlessNode) =>
-    node.transportProbe === 'NONE' ? 'не применяется' : formatLatency(node.transportLatencyMs)
+    node.transportProbe === 'NONE'
+        ? 'не применяется'
+        : node.transportLatencyMs === null
+          ? 'не прошел'
+          : formatLatency(node.transportLatencyMs)
 const renderProbeTooltip = (node: ExternalVlessNode) => (
     <Stack gap={2}>
-        <Text size="xs">IP:port: {formatLatency(node.tcpLatencyMs)}</Text>
         <Text size="xs">
             {getTransportProbeLabel(node)}: {getTransportProbeValue(node)}
         </Text>
-        <Text size="xs">Итог: {formatLatency(node.latencyMs)}</Text>
+        <Text size="xs">IP:port: {formatLatency(node.tcpLatencyMs)}</Text>
+        <Text size="xs">Итог: {formatLatency(getPreferredDisplayedLatency(node))}</Text>
     </Stack>
 )
 
@@ -288,8 +299,8 @@ export function ReadySubscriptionHostFormWidget({
                     return aliveDelta
                 }
 
-                const latencyA = a.latencyMs ?? Number.MAX_SAFE_INTEGER
-                const latencyB = b.latencyMs ?? Number.MAX_SAFE_INTEGER
+                const latencyA = getPreferredDisplayedLatency(a) ?? Number.MAX_SAFE_INTEGER
+                const latencyB = getPreferredDisplayedLatency(b) ?? Number.MAX_SAFE_INTEGER
                 return latencyA - latencyB
             })
     }, [deferredSearch, initialPinnedNodeIdSet, initialSelectedNodeIdSet, selectedPreset])
@@ -497,9 +508,9 @@ export function ReadySubscriptionHostFormWidget({
                                     <Table.Tr>
                                         <Table.Th w={48}>Вкл</Table.Th>
                                         <Table.Th w={48}>Pin</Table.Th>
+                                        <Table.Th w={150}>Пинг</Table.Th>
                                         <Table.Th w={320}>Сервер</Table.Th>
                                         <Table.Th w={150}>Страна</Table.Th>
-                                        <Table.Th w={150}>Пинг</Table.Th>
                                         <Table.Th w={220}>Мост</Table.Th>
                                         <Table.Th w={100}>Статус</Table.Th>
                                     </Table.Tr>
@@ -531,6 +542,16 @@ export function ReadySubscriptionHostFormWidget({
                                                     </ActionIcon>
                                                 </Table.Td>
                                                 <Table.Td>
+                                                    <Tooltip label={renderProbeTooltip(node)} multiline withArrow>
+                                                        <Badge
+                                                            color={getLatencyColor(node)}
+                                                            variant="light"
+                                                        >
+                                                            {formatLatency(getPreferredDisplayedLatency(node))}
+                                                        </Badge>
+                                                    </Tooltip>
+                                                </Table.Td>
+                                                <Table.Td>
                                                     <Stack gap={2}>
                                                         <Text fw={600} lineClamp={1} size="sm">
                                                             {node.displayName}
@@ -545,16 +566,6 @@ export function ReadySubscriptionHostFormWidget({
                                                         <Box>{resolveCountryCode(node.countryCode || '')}</Box>
                                                         <Text size="sm">{compactCountryLabel(node)}</Text>
                                                     </Group>
-                                                </Table.Td>
-                                                <Table.Td>
-                                                    <Tooltip label={renderProbeTooltip(node)} multiline withArrow>
-                                                        <Badge
-                                                            color={getLatencyColor(node)}
-                                                            variant="light"
-                                                        >
-                                                            {formatLatency(node.latencyMs)}
-                                                        </Badge>
-                                                    </Tooltip>
                                                 </Table.Td>
                                                 <Table.Td>
                                                     <Text lineClamp={1} size="sm">
