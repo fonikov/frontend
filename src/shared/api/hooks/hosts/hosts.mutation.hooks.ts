@@ -12,6 +12,7 @@ import {
 import { notifications } from '@mantine/notifications'
 
 import { createMutationHook } from '../../tsq-helpers'
+import { ImportHostInputSchema, ImportHostResponseSchema } from './import-host.schema'
 
 export const useCreateHost = createMutationHook({
     endpoint: CreateHostCommand.TSQ_url,
@@ -216,6 +217,23 @@ export const useSetPortToManyHosts = createMutationHook({
                 title: `Set Port To Many Hosts`,
                 message:
                     error instanceof Error ? error.message : `Request failed with unknown error.`,
+                color: 'red'
+            })
+        }
+    }
+})
+
+export const useImportHostInput = createMutationHook({
+    endpoint: '/api/hosts/actions/import',
+    bodySchema: ImportHostInputSchema,
+    responseSchema: ImportHostResponseSchema,
+    requestMethod: 'post',
+    rMutationParams: {
+        onError: (error) => {
+            notifications.show({
+                title: 'Import Host Input',
+                message:
+                    error instanceof Error ? error.message : 'Request failed with unknown error.',
                 color: 'red'
             })
         }
