@@ -430,7 +430,8 @@ export function ReadySubscriptionHostFormWidget({
                 <TextInput
                     label="Название хоста"
                     onChange={(event) => setRemark(event.currentTarget.value)}
-                    placeholder="White RU основной"
+                    description="Используй #x или #х, чтобы при нескольких активных серверах получить #1, #2, #3..."
+                    placeholder="White RU #x"
                     value={remark}
                 />
                 <TextInput
@@ -475,7 +476,7 @@ export function ReadySubscriptionHostFormWidget({
                     <SimpleGrid cols={{ base: 1, md: 3 }}>
                         <NumberInput
                             label="Активных серверов у хоста"
-                            max={10}
+                            max={Math.max(1, selectedNodeIds.length)}
                             min={1}
                             onChange={(value) => setActiveNodeLimit(Number(value) || 1)}
                             value={activeNodeLimit}
