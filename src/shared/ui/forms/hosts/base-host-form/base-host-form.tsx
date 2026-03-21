@@ -15,6 +15,7 @@ import {
     Switch,
     Tabs,
     Text,
+    Textarea,
     TextInput,
     ThemeIcon,
     Tooltip,
@@ -43,6 +44,7 @@ import {
 import { TbCirclesRelation, TbCloudNetwork, TbEye, TbServer2 } from 'react-icons/tb'
 import { HiQuestionMarkCircle } from 'react-icons/hi'
 import { useDisclosure } from '@mantine/hooks'
+import { notifications } from '@mantine/notifications'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -69,6 +71,7 @@ import { SectionCard } from '@shared/ui/section-card'
 
 import classes from './HostTabs.module.css'
 import { IProps } from './interfaces'
+import { parseVlessUri } from './parse-vless-uri'
 
 const SUBSCRIPTION_TYPES = {
     [SUBSCRIPTION_TEMPLATE_TYPE.XRAY_JSON]: {
@@ -114,6 +117,7 @@ export const BaseHostForm = <T extends CreateHostCommand.Request | UpdateHostCom
     const { t } = useTranslation()
     const [opened, { open, close }] = useDisclosure(false)
     const [activeTab, setActiveTab] = useState<null | string>('basic')
+    const [importVlessUri, setImportVlessUri] = useState('')
 
     const [muxParamsOpened, { open: openMuxParams, close: closeMuxParams }] = useDisclosure(false)
     const [sockoptParamsOpened, { open: openSockoptParams, close: closeSockoptParams }] =
@@ -158,6 +162,38 @@ export const BaseHostForm = <T extends CreateHostCommand.Request | UpdateHostCom
             configProfileInboundUuid: true,
             configProfileUuid: true
         })
+    }
+
+    const handleImportVlessUri = () => {
+        try {
+            const parsed = parseVlessUri(importVlessUri)
+
+            form.setValues({
+                address: parsed.address,
+                allowInsecure: parsed.allowInsecure,
+                alpn: parsed.alpn,
+                fingerprint: parsed.fingerprint,
+                host: parsed.host,
+                path: parsed.path,
+                port: parsed.port,
+                remark: parsed.remark,
+                securityLayer: parsed.securityLayer,
+                sni: parsed.sni
+            } as Partial<T>)
+
+            notifications.show({
+                color: 'teal',
+                message:
+                    'VLESS URI parsed. Inbound still needs to match the target profile manually.',
+                title: 'Import complete'
+            })
+        } catch (error) {
+            notifications.show({
+                color: 'red',
+                message: error instanceof Error ? error.message : 'Failed to parse VLESS URI',
+                title: 'Import failed'
+            })
+        }
     }
 
     useEffect(() => {
@@ -382,6 +418,32 @@ export const BaseHostForm = <T extends CreateHostCommand.Request | UpdateHostCom
                                                 configProfiles={configProfiles}
                                                 onSaveInbound={saveInbound}
                                             />
+                                        </Stack>
+
+                                        <Stack gap="xs">
+                                            <Textarea
+                                                autosize
+                                                label="Import from VLESS URI"
+                                                minRows={2}
+                                                onChange={(event) =>
+                                                    setImportVlessUri(event.currentTarget.value)
+                                                }
+                                                placeholder="Paste vless:// URI to prefill address, port, SNI, Host, Path and more"
+                                                value={importVlessUri}
+                                            />
+                                            <Group justify="space-between" wrap="wrap">
+                                                <Text c="dimmed" size="xs">
+                                                    This fills host fields only. Config profile and
+                                                    inbound are still selected separately.
+                                                </Text>
+                                                <Button
+                                                    disabled={!importVlessUri.trim()}
+                                                    onClick={handleImportVlessUri}
+                                                    variant="light"
+                                                >
+                                                    Parse VLESS URI
+                                                </Button>
+                                            </Group>
                                         </Stack>
 
                                         <Group
