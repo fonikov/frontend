@@ -54,8 +54,7 @@ type TProps = {
 
 const PRESET_TITLES: Record<string, string> = {
     'auto-black': 'Black List',
-    'auto-white-ru-ip': 'White List RU IP',
-    'auto-white-foreign-ip': 'White List EN IP'
+    'auto-white-ru-ip': 'White List'
 }
 
 const normalizeTag = (value: string) => value.trim().toUpperCase()
