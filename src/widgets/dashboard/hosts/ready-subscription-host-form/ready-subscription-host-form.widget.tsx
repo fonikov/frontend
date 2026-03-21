@@ -25,7 +25,7 @@ import {
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { TbPinned, TbPinnedFilled } from 'react-icons/tb'
 
 import { HostSelectInboundFeature } from '@features/ui/dashboard/hosts/host-select-inbound/host-select-inbound.feature'
@@ -41,7 +41,8 @@ import {
 } from '@widgets/dashboard/hosts/external-vless-manager'
 
 const READY_HOST_ADDRESS = 'ready-subscription.local'
-const MAX_VISIBLE_READY_HOST_ROWS = 300
+const INITIAL_VISIBLE_READY_HOST_ROWS = 200
+const VISIBLE_READY_HOST_ROWS_STEP = 200
 
 type TConfigProfiles = GetConfigProfilesCommand.Response['response']['configProfiles']
 
@@ -150,7 +151,9 @@ export function ReadySubscriptionHostFormWidget({
     const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
     const [pinnedNodeIds, setPinnedNodeIds] = useState<string[]>([])
     const [search, setSearch] = useState('')
+    const [visibleNodeCount, setVisibleNodeCount] = useState(INITIAL_VISIBLE_READY_HOST_ROWS)
     const deferredSearch = useDeferredValue(search)
+    const tableViewportRef = useRef<HTMLDivElement | null>(null)
 
     const { data: presets, isFetching } = useQuery({
         queryKey: externalVlessQueryKey,
@@ -306,17 +309,27 @@ export function ReadySubscriptionHostFormWidget({
     }, [deferredSearch, initialPinnedNodeIdSet, initialSelectedNodeIdSet, selectedPreset])
 
     const visibleNodes = useMemo(() => {
-        if (filteredNodes.length <= MAX_VISIBLE_READY_HOST_ROWS) {
+        if (filteredNodes.length <= visibleNodeCount) {
             return filteredNodes
         }
 
         return filteredNodes.filter(
             (node, index) =>
-                index < MAX_VISIBLE_READY_HOST_ROWS ||
+                index < visibleNodeCount ||
                 selectedNodeIdSet.has(node.uuid) ||
                 pinnedNodeIdSet.has(node.uuid)
         )
-    }, [filteredNodes, pinnedNodeIdSet, selectedNodeIdSet])
+    }, [filteredNodes, pinnedNodeIdSet, selectedNodeIdSet, visibleNodeCount])
+
+    useEffect(() => {
+        setVisibleNodeCount(INITIAL_VISIBLE_READY_HOST_ROWS)
+    }, [deferredSearch, presetUuid])
+
+    const loadMoreVisibleNodes = () => {
+        setVisibleNodeCount((prev) =>
+            Math.min(filteredNodes.length, prev + VISIBLE_READY_HOST_ROWS_STEP)
+        )
+    }
 
     const toggleNode = (nodeUuid: string) => {
         const isSelected = selectedNodeIdSet.has(nodeUuid)
@@ -501,7 +514,23 @@ export function ReadySubscriptionHostFormWidget({
 
                     <Divider />
 
-                    <ScrollArea.Autosize mah={560}>
+                    <ScrollArea.Autosize
+                        mah={560}
+                        onScrollPositionChange={({ y }) => {
+                            const viewport = tableViewportRef.current
+                            if (!viewport) {
+                                return
+                            }
+
+                            const remaining =
+                                viewport.scrollHeight - (y + viewport.clientHeight)
+
+                            if (remaining <= 120 && visibleNodes.length < filteredNodes.length) {
+                                loadMoreVisibleNodes()
+                            }
+                        }}
+                        viewportRef={tableViewportRef}
+                    >
                         <Table.ScrollContainer minWidth={1220}>
                             <Table highlightOnHover stickyHeader withColumnBorders>
                                 <Table.Thead>
