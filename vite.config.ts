@@ -12,12 +12,14 @@ import * as dotenv from 'dotenv'
 
 dotenv.config({ path: `${__dirname}/.env` })
 
+const shouldDownloadWebfonts = process.env.DISABLE_WEBFONT_DOWNLOAD !== '1'
+
 export default defineConfig({
     plugins: [
         react(),
         tsconfigPaths(),
         removeConsole(),
-        webfontDownload(),
+        ...(shouldDownloadWebfonts ? [webfontDownload()] : []),
         ViteEjsPlugin((viteConfig) => {
             return {
                 root: viteConfig.root
