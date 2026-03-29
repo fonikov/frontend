@@ -13,6 +13,7 @@ import {
     Divider,
     Group,
     NumberInput,
+    Select,
     ScrollArea,
     SegmentedControl,
     SimpleGrid,
@@ -56,6 +57,25 @@ type TProps = {
 const PRESET_TITLES: Record<string, string> = {
     'auto-black': 'Black List',
     'auto-white-ru-ip': 'White List'
+}
+const ALL_SOURCES_VALUE = '__all__'
+const MANUAL_SOURCE_VALUE = '__manual__'
+
+const getReadyNodeSourceUrl = (node: ExternalVlessNode, preset: ExternalVlessPreset | null) => {
+    if (node.isManual) {
+        return null
+    }
+
+    const sourceIndex = Math.floor(node.sourcePosition / 10_000)
+    return preset?.sourceUrls[sourceIndex] || null
+}
+
+const getReadyNodeSourceLabel = (node: ExternalVlessNode, preset: ExternalVlessPreset | null) => {
+    if (node.isManual) {
+        return 'manual'
+    }
+
+    return getReadyNodeSourceUrl(node, preset) || 'unknown source'
 }
 
 const normalizeTag = (value: string) => value.trim().toUpperCase()
@@ -151,6 +171,7 @@ export function ReadySubscriptionHostFormWidget({
     const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
     const [pinnedNodeIds, setPinnedNodeIds] = useState<string[]>([])
     const [search, setSearch] = useState('')
+    const [sourceFilter, setSourceFilter] = useState<string>(ALL_SOURCES_VALUE)
     const [visibleNodeCount, setVisibleNodeCount] = useState(INITIAL_VISIBLE_READY_HOST_ROWS)
     const deferredSearch = useDeferredValue(search)
     const tableViewportRef = useRef<HTMLDivElement | null>(null)
@@ -256,6 +277,29 @@ export function ReadySubscriptionHostFormWidget({
                 .map((node) => node.uuid as string)
         )
     }, [host, mode, presetUuid])
+    const sourceFilterOptions = useMemo(() => {
+        if (!selectedPreset) {
+            return [{ label: 'Все источники', value: ALL_SOURCES_VALUE }]
+        }
+
+        const options = [{ label: 'Все источники', value: ALL_SOURCES_VALUE }]
+
+        if (selectedPreset.nodes.some((node) => node.isManual)) {
+            options.push({
+                label: 'Manual',
+                value: MANUAL_SOURCE_VALUE
+            })
+        }
+
+        for (const sourceUrl of selectedPreset.sourceUrls) {
+            options.push({
+                label: sourceUrl,
+                value: sourceUrl
+            })
+        }
+
+        return options
+    }, [selectedPreset])
 
     const filteredNodes = useMemo(() => {
         if (!selectedPreset) {
@@ -265,11 +309,36 @@ export function ReadySubscriptionHostFormWidget({
         const normalizedSearch = deferredSearch.trim().toLowerCase()
         return selectedPreset.nodes
             .filter((node: ExternalVlessNode) => {
+                const nodeSourceUrl = getReadyNodeSourceUrl(node, selectedPreset)
+
+                if (sourceFilter === MANUAL_SOURCE_VALUE && !node.isManual) {
+                    return false
+                }
+
+                if (
+                    sourceFilter !== ALL_SOURCES_VALUE &&
+                    sourceFilter !== MANUAL_SOURCE_VALUE &&
+                    nodeSourceUrl !== sourceFilter
+                ) {
+                    return false
+                }
+
                 if (!normalizedSearch) {
                     return true
                 }
 
-                return [node.displayName, node.countryLabel, node.bridgeLabel, node.originalRemark]
+                return [
+                    node.displayName,
+                    node.countryLabel,
+                    node.bridgeLabel,
+                    node.originalRemark,
+                    node.address,
+                    node.resolvedAddress || '',
+                    node.uuid,
+                    node.rawUri,
+                    nodeSourceUrl || '',
+                    node.isManual ? 'manual' : ''
+                ]
                     .join(' ')
                     .toLowerCase()
                     .includes(normalizedSearch)
@@ -306,7 +375,7 @@ export function ReadySubscriptionHostFormWidget({
                 const latencyB = getPreferredDisplayedLatency(b) ?? Number.MAX_SAFE_INTEGER
                 return latencyA - latencyB
             })
-    }, [deferredSearch, initialPinnedNodeIdSet, initialSelectedNodeIdSet, selectedPreset])
+    }, [deferredSearch, initialPinnedNodeIdSet, initialSelectedNodeIdSet, selectedPreset, sourceFilter])
 
     const visibleNodes = useMemo(() => {
         if (filteredNodes.length <= visibleNodeCount) {
@@ -323,7 +392,11 @@ export function ReadySubscriptionHostFormWidget({
 
     useEffect(() => {
         setVisibleNodeCount(INITIAL_VISIBLE_READY_HOST_ROWS)
-    }, [deferredSearch, presetUuid])
+    }, [deferredSearch, presetUuid, sourceFilter])
+
+    useEffect(() => {
+        setSourceFilter(ALL_SOURCES_VALUE)
+    }, [presetUuid])
 
     const loadMoreVisibleNodes = () => {
         setVisibleNodeCount((prev) =>
@@ -502,8 +575,15 @@ export function ReadySubscriptionHostFormWidget({
                     <TextInput
                         label="Поиск по серверам"
                         onChange={(event) => setSearch(event.currentTarget.value)}
-                        placeholder="Страна, мост, remark"
+                        placeholder="Страна, мост, remark, IP, UUID"
                         value={search}
+                    />
+                    <Select
+                        clearable={false}
+                        data={sourceFilterOptions}
+                        label="Источник"
+                        onChange={(value) => setSourceFilter(value || ALL_SOURCES_VALUE)}
+                        value={sourceFilter}
                     />
 
                     {filteredNodes.length > visibleNodes.length && (
@@ -588,6 +668,9 @@ export function ReadySubscriptionHostFormWidget({
                                                         </Text>
                                                         <Text c="dimmed" lineClamp={1} size="xs">
                                                             {node.originalRemark}
+                                                        </Text>
+                                                        <Text c="dimmed" lineClamp={1} size="xs">
+                                                            Source: {getReadyNodeSourceLabel(node, selectedPreset)}
                                                         </Text>
                                                     </Stack>
                                                 </Table.Td>

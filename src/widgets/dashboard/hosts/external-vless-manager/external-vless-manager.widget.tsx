@@ -21,6 +21,7 @@ import { useHostsStoreFilters } from '@entities/dashboard'
 import { instance, queryClient } from '@shared/api'
 
 export type ExternalVlessNode = {
+    address: string
     aliasRemark: null | string
     bridgeLabel: string
     countryCode: null | string
@@ -41,7 +42,9 @@ export type ExternalVlessNode = {
     priority: number
     rawUri: string
     remarkTags: string[]
+    resolvedAddress: null | string
     security: string
+    sourcePosition: number
     tcpLatencyMs: null | number
     transportLatencyMs: null | number
     transportProbe: 'HTTPS' | 'NONE' | 'REALITY' | 'TLS'
