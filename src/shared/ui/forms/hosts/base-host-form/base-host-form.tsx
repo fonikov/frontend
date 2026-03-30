@@ -44,7 +44,6 @@ import {
 import { TbCirclesRelation, TbCloudNetwork, TbEye, TbServer2 } from 'react-icons/tb'
 import { HiQuestionMarkCircle } from 'react-icons/hi'
 import { useDisclosure } from '@mantine/hooks'
-import { notifications } from '@mantine/notifications'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -55,7 +54,6 @@ import {
     BASIC_XHTTP_EXTRA_PARAMS,
     PASTE_BASIC_XHTTP_EXTRA_PARAMS
 } from '@shared/constants'
-import { useImportHostInput } from '@shared/api/hooks'
 import { HostSelectInboundFeature } from '@features/ui/dashboard/hosts/host-select-inbound/host-select-inbound.feature'
 import { HostTagsInputWidget } from '@widgets/dashboard/hosts/host-tags-input/host-tags-input'
 import { emojiFlag, resolveCountryCode } from '@shared/utils/misc/resolve-country-code'
@@ -117,10 +115,6 @@ export const BaseHostForm = <T extends CreateHostCommand.Request | UpdateHostCom
     const { t } = useTranslation()
     const [opened, { open, close }] = useDisclosure(false)
     const [activeTab, setActiveTab] = useState<null | string>('basic')
-    const [importFormat, setImportFormat] = useState<'VLESS_URI' | 'XRAY_JSON'>('VLESS_URI')
-    const [importInput, setImportInput] = useState('')
-    const importHostInput = useImportHostInput()
-
     const [muxParamsOpened, { open: openMuxParams, close: closeMuxParams }] = useDisclosure(false)
     const [sockoptParamsOpened, { open: openSockoptParams, close: closeSockoptParams }] =
         useDisclosure(false)
@@ -164,39 +158,6 @@ export const BaseHostForm = <T extends CreateHostCommand.Request | UpdateHostCom
             configProfileInboundUuid: true,
             configProfileUuid: true
         })
-    }
-
-    const handleImportHostInput = async () => {
-        try {
-            const parsed = await importHostInput.mutateAsync({
-                variables: {
-                    format: importFormat,
-                    input: importInput
-                }
-            })
-
-            form.setValues({
-                address: parsed.address,
-                allowInsecure: parsed.allowInsecure,
-                alpn: parsed.alpn,
-                fingerprint: parsed.fingerprint,
-                host: parsed.host,
-                path: parsed.path,
-                port: parsed.port,
-                remark: parsed.remark,
-                securityLayer: parsed.securityLayer,
-                sni: parsed.sni
-            } as Partial<T>)
-
-            notifications.show({
-                color: 'teal',
-                message:
-                    'Host fields imported. Inbound still needs to match the target profile manually.',
-                title: 'Import complete'
-            })
-        } catch (error) {
-            // error notification is handled by the mutation hook
-        }
     }
 
     useEffect(() => {
@@ -421,61 +382,6 @@ export const BaseHostForm = <T extends CreateHostCommand.Request | UpdateHostCom
                                                 configProfiles={configProfiles}
                                                 onSaveInbound={saveInbound}
                                             />
-                                        </Stack>
-
-                                        <Stack gap="xs">
-                                            <Select
-                                                data={[
-                                                    {
-                                                        label: 'VLESS URI',
-                                                        value: 'VLESS_URI'
-                                                    },
-                                                    {
-                                                        label: 'Xray JSON',
-                                                        value: 'XRAY_JSON'
-                                                    }
-                                                ]}
-                                                label="Import host from config"
-                                                onChange={(value) =>
-                                                    setImportFormat(
-                                                        (value as 'VLESS_URI' | 'XRAY_JSON') ??
-                                                            'VLESS_URI'
-                                                    )
-                                                }
-                                                value={importFormat}
-                                            />
-                                            <Textarea
-                                                autosize
-                                                label="Raw config"
-                                                minRows={4}
-                                                onChange={(event) =>
-                                                    setImportInput(event.currentTarget.value)
-                                                }
-                                                placeholder={
-                                                    importFormat === 'VLESS_URI'
-                                                        ? 'Paste vless:// URI to prefill address, port, SNI, Host, Path and more'
-                                                        : 'Paste Xray JSON with a vless outbound'
-                                                }
-                                                value={importInput}
-                                            />
-                                            <Group justify="space-between" wrap="wrap">
-                                                <Text c="dimmed" size="xs">
-                                                    This imports supported host fields and resolves
-                                                    the server domain into a numeric IP. Config
-                                                    profile and inbound are still selected
-                                                    separately.
-                                                </Text>
-                                                <Button
-                                                    disabled={!importInput.trim()}
-                                                    loading={importHostInput.isPending}
-                                                    onClick={() => {
-                                                        void handleImportHostInput()
-                                                    }}
-                                                    variant="light"
-                                                >
-                                                    Import config
-                                                </Button>
-                                            </Group>
                                         </Stack>
 
                                         <Group

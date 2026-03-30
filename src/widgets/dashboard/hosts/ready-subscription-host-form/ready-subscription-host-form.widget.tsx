@@ -22,6 +22,7 @@ import {
     Table,
     Text,
     TextInput,
+    Textarea,
     Tooltip
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -44,6 +45,14 @@ import {
 const READY_HOST_ADDRESS = 'ready-subscription.local'
 const INITIAL_VISIBLE_READY_HOST_ROWS = 200
 const VISIBLE_READY_HOST_ROWS_STEP = 200
+const extractVlessUris = (value: string) =>
+    Array.from(
+        new Set(
+            (value.match(/vless:\/\/[^\s]+/gi) || [])
+                .map((item) => item.trim())
+                .filter(Boolean)
+        )
+    )
 
 type TConfigProfiles = GetConfigProfilesCommand.Response['response']['configProfiles']
 
@@ -173,6 +182,7 @@ export function ReadySubscriptionHostFormWidget({
     const [search, setSearch] = useState('')
     const [sourceFilter, setSourceFilter] = useState<string>(ALL_SOURCES_VALUE)
     const [visibleNodeCount, setVisibleNodeCount] = useState(INITIAL_VISIBLE_READY_HOST_ROWS)
+    const [manualImportInput, setManualImportInput] = useState('')
     const deferredSearch = useDeferredValue(search)
     const tableViewportRef = useRef<HTMLDivElement | null>(null)
 
@@ -214,6 +224,13 @@ export function ReadySubscriptionHostFormWidget({
             })
             onSubmitted()
         }
+    })
+
+    const createManualNodeMutation = useMutation({
+        mutationFn: async (params: { presetUuid: string; rawUri: string }) =>
+            instance.post(`/api/external-vless/presets/${params.presetUuid}/manual-nodes`, {
+                rawUri: params.rawUri
+            })
     })
 
     useEffect(() => {
@@ -425,6 +442,80 @@ export function ReadySubscriptionHostFormWidget({
         )
     }
 
+    const importManualNodes = async () => {
+        if (!presetUuid) {
+            notifications.show({
+                color: 'red',
+                message: 'Select a ready subscription preset first.'
+            })
+            return
+        }
+
+        const rawUris = extractVlessUris(manualImportInput)
+
+        if (rawUris.length === 0) {
+            notifications.show({
+                color: 'red',
+                message: 'Paste at least one vless:// URI.'
+            })
+            return
+        }
+
+        try {
+            for (const rawUri of rawUris) {
+                await createManualNodeMutation.mutateAsync({
+                    presetUuid,
+                    rawUri
+                })
+            }
+
+            const refreshedPresets = await queryClient.fetchQuery({
+                queryKey: externalVlessQueryKey,
+                queryFn: fetchExternalVlessPresets
+            })
+
+            const refreshedPreset = refreshedPresets.find((preset) => preset.uuid === presetUuid)
+            const importedNodes =
+                refreshedPreset?.nodes.filter(
+                    (node) => node.isManual && rawUris.includes(node.rawUri)
+                ) || []
+
+            if (importedNodes.length > 0) {
+                setSelectedNodeIds((prev) =>
+                    Array.from(new Set([...prev, ...importedNodes.map((node) => node.uuid)]))
+                )
+                setSourceFilter(MANUAL_SOURCE_VALUE)
+
+                if (!remark.trim()) {
+                    setRemark(
+                        selectedPreset?.name ||
+                            importedNodes[0].displayName ||
+                            importedNodes[0].originalRemark ||
+                            'Imported ready host'
+                    )
+                }
+            }
+
+            setManualImportInput('')
+
+            notifications.show({
+                color: 'teal',
+                message:
+                    rawUris.length === 1
+                        ? 'VLESS imported into ready subscription and selected for this host.'
+                        : `${rawUris.length} VLESS URIs imported into ready subscription and selected for this host.`
+            })
+        } catch (error) {
+            notifications.show({
+                color: 'red',
+                message:
+                    error instanceof Error
+                        ? error.message
+                        : 'Failed to import VLESS into ready subscription.'
+            })
+        }
+    }
+
     const submit = () => {
         if (!remark.trim()) {
             notifications.show({
@@ -565,6 +656,29 @@ export function ReadySubscriptionHostFormWidget({
                             onChange={(event) => setIsDisabled(event.currentTarget.checked)}
                         />
                     </SimpleGrid>
+
+                    <Group align="flex-end">
+                        <Textarea
+                            autosize
+                            description="Imports vless:// URIs as manual nodes inside the selected ready subscription preset and selects them for this host."
+                            label="Import to ready subscription"
+                            minRows={3}
+                            onChange={(event) => setManualImportInput(event.currentTarget.value)}
+                            placeholder="Paste one or more vless:// URIs"
+                            style={{ flex: 1 }}
+                            value={manualImportInput}
+                        />
+                        <Button
+                            disabled={!presetUuid || !manualImportInput.trim()}
+                            loading={createManualNodeMutation.isPending}
+                            onClick={() => {
+                                void importManualNodes()
+                            }}
+                            variant="light"
+                        >
+                            Import
+                        </Button>
+                    </Group>
 
                     <Switch
                         checked={isHidden}
